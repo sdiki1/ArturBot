@@ -30,6 +30,7 @@ cp .env.example .env
 - `BOT_TOKEN`
 - `BOT_USERNAME`
 - `DEFAULT_MENTOR_NAME`, `DEFAULT_MENTOR_USERNAME`
+- `COMMUNITY_CHAT_URL` (ссылка на ваш чат, например `https://t.me/your_chat`)
 - параметры БД и Redis
 - `WEB_BASE_URL`
 - `YOOMONEY_RECEIVER`, `YOOMONEY_LABEL_SECRET`, `YOOMONEY_SUCCESS_URL`, `YOOMONEY_FAIL_URL`

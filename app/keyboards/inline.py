@@ -25,9 +25,12 @@ class BroadcastConfirmCallback(CallbackData, prefix="brc"):
     action: str
 
 
-def go_to_menu_keyboard() -> InlineKeyboardMarkup:
+def go_to_menu_keyboard(chat_url: str | None = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Перейти в меню", callback_data=CabinetCallback(action="open"))
+    if chat_url:
+        builder.button(text="Перейти в чат", url=chat_url)
+    else:
+        builder.button(text="Перейти в чат", callback_data=CabinetCallback(action="chat_not_set"))
     return builder.as_markup()
 
 

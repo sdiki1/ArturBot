@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     default_mentor_name: str = Field(default="Евгений Rembo", alias="DEFAULT_MENTOR_NAME")
     default_mentor_username: str = Field(default="charkrembo", alias="DEFAULT_MENTOR_USERNAME")
+    community_chat_url: str = Field(default="", alias="COMMUNITY_CHAT_URL")
 
     postgres_db: str = Field(default="bot_db", alias="POSTGRES_DB")
     postgres_user: str = Field(default="bot_user", alias="POSTGRES_USER")
