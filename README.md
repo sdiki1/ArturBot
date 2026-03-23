@@ -40,6 +40,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+При старте автоматически запускается сервис `migrator` (`alembic upgrade head`), и только после этого поднимаются `bot` и `web`.
+
 Сервисы:
 
 - Web: `http://localhost:8000`
@@ -50,7 +52,7 @@ docker compose up --build
 Применить миграции:
 
 ```bash
-docker compose run --rm bot alembic upgrade head
+docker compose run --rm migrator
 ```
 
 Создать новую миграцию (если нужно):

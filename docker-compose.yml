@@ -26,6 +26,18 @@ services:
       retries: 10
       start_period: 5s
 
+  migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
   bot:
     build:
       context: .
@@ -37,6 +49,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     restart: unless-stopped
     volumes:
       - ./app/assets:/app/app/assets:ro
@@ -51,6 +65,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     restart: unless-stopped
     ports:
       - "8000:8000"
