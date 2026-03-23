@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from app.utils.text import user_display_name
 router = Router(name=__name__)
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "referral"))
+@router.callback_query(CabinetCallback.filter(F.action == "referral"))
 async def referral_link_handler(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await callback.answer()

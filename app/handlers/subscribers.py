@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,7 @@ from app.utils.text import split_text_by_limit, subscriber_line
 router = Router(name=__name__)
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "subscribers"))
+@router.callback_query(CabinetCallback.filter(F.action == "subscribers"))
 async def subscribers_handler(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None or callback.message is None:
         await callback.answer()

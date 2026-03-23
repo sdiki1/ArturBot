@@ -24,7 +24,7 @@ from app.states.forms import BroadcastForm
 router = Router(name=__name__)
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "broadcast"))
+@router.callback_query(CabinetCallback.filter(F.action == "broadcast"))
 async def broadcast_entry(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     if callback.message:

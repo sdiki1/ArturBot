@@ -8,8 +8,8 @@ ASSETS_DIR = BASE_DIR / "assets"
 
 
 def cabinet_banner_path() -> Path:
-    return ASSETS_DIR / "cabinet_banner.jpg"
+    return ASSETS_DIR / "cabinet_banner.png"
 
 
 def photo_placeholder_path() -> Path:
-    return ASSETS_DIR / "photo_placeholder.jpg"
+    return ASSETS_DIR / "photo_placeholder.png"

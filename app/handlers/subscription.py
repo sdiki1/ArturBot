@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,13 +34,13 @@ async def _show_subscription_text(target: Message | CallbackQuery, session: Asyn
             await target.message.answer(text, reply_markup=subscription_keyboard())
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "subscription"))
+@router.callback_query(CabinetCallback.filter(F.action == "subscription"))
 async def open_subscription(callback: CallbackQuery, session: AsyncSession) -> None:
     await _show_subscription_text(callback, session)
     await callback.answer()
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "renew_subscription"))
+@router.callback_query(CabinetCallback.filter(F.action == "renew_subscription"))
 async def renew_subscription(callback: CallbackQuery, session: AsyncSession) -> None:
     settings = get_settings()
 

@@ -40,7 +40,7 @@ async def show_photos_screen(bot: Bot, chat_id: int, user_id: int, session: Asyn
     await bot.send_message(chat_id=chat_id, text="Выберите слот для изменения.", reply_markup=photos_footer_keyboard())
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "photos"))
+@router.callback_query(CabinetCallback.filter(F.action == "photos"))
 async def open_photos(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None or callback.message is None:
         await callback.answer()

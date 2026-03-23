@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ from app.utils.validators import is_valid_url
 router = Router(name=__name__)
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "link"))
+@router.callback_query(CabinetCallback.filter(F.action == "link"))
 async def ask_external_link(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(LinkForm.waiting_link)
     if callback.message:
@@ -51,7 +51,7 @@ async def save_external_link(message: Message, session: AsyncSession, state: FSM
     )
 
 
-@router.callback_query(CabinetCallback.filter(lambda c: c.action == "bio"))
+@router.callback_query(CabinetCallback.filter(F.action == "bio"))
 async def ask_bio(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(BioForm.waiting_bio)
     if callback.message:
