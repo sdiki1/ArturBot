@@ -10,6 +10,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -18,9 +19,29 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-payment_status_enum = sa.Enum("pending", "paid", "failed", "expired", name="paymentstatus")
-broadcast_content_type_enum = sa.Enum("text", "text_photo", "text_video", name="broadcastcontenttype")
-broadcast_status_enum = sa.Enum("draft", "sending", "done", "failed", name="broadcaststatus")
+payment_status_enum = postgresql.ENUM(
+    "pending",
+    "paid",
+    "failed",
+    "expired",
+    name="paymentstatus",
+    create_type=False,
+)
+broadcast_content_type_enum = postgresql.ENUM(
+    "text",
+    "text_photo",
+    "text_video",
+    name="broadcastcontenttype",
+    create_type=False,
+)
+broadcast_status_enum = postgresql.ENUM(
+    "draft",
+    "sending",
+    "done",
+    "failed",
+    name="broadcaststatus",
+    create_type=False,
+)
 
 
 def upgrade() -> None:
