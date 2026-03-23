@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,15 +10,23 @@ from app.config import get_settings
 from app.keyboards.inline import CabinetCallback, single_back_to_cabinet_keyboard
 from app.services.referrals import ReferralService
 from app.utils.text import user_display_name
+from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edit_or_resend_callback_message
 
 router = Router(name=__name__)
 
 
 @router.callback_query(CabinetCallback.filter(F.action == "referral"))
-async def referral_link_handler(callback: CallbackQuery, session: AsyncSession) -> None:
+async def referral_link_handler(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
     if callback.from_user is None:
         await callback.answer()
         return
+    if callback.message:
+        await clear_state_message_id(
+            bot=callback.bot,
+            state=state,
+            chat_id=callback.message.chat.id,
+            key=CABINET_BANNER_MESSAGE_KEY,
+        )
 
     settings = get_settings()
     referral_service = ReferralService(session, settings)
@@ -25,8 +34,11 @@ async def referral_link_handler(callback: CallbackQuery, session: AsyncSession) 
     link = referral_service.build_referral_link(user.referral_code)
 
     text = f"Моя реф.ссылка:\n\n{link}"
-    if callback.message:
-        await callback.message.answer(text, reply_markup=single_back_to_cabinet_keyboard("Назад в Личный кабинет"))
+    await edit_or_resend_callback_message(
+        callback,
+        text,
+        reply_markup=single_back_to_cabinet_keyboard("Назад в Личный кабинет"),
+    )
     await callback.answer()
 
 
@@ -41,7 +53,12 @@ async def who_invited_handler(message: Message, session: AsyncSession) -> None:
     inviter = await referral_service.get_inviter(user)
 
     if inviter is None:
-        await message.answer("У Вас нет пригласившего пользователя.")
+        self_name = user_display_name(user)
+        self_username = f"@{user.username}" if user.username else ""
+        text = f"У Вас нет пригласившего пользователя.\n\nВаш личный профиль:\n{self_name}"
+        if self_username:
+            text += f"\n{self_username}"
+        await message.answer(text)
         return
 
     inviter_name = user_display_name(inviter)

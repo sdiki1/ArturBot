@@ -10,6 +10,7 @@ from app.db.repo.user_repo import UserRepo
 from app.keyboards.inline import CabinetCallback, single_back_to_cabinet_keyboard
 from app.services.referrals import ReferralService
 from app.states.forms import BioForm, LinkForm
+from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edit_or_resend_callback_message
 from app.utils.validators import is_valid_url
 
 router = Router(name=__name__)
@@ -17,12 +18,19 @@ router = Router(name=__name__)
 
 @router.callback_query(CabinetCallback.filter(F.action == "link"))
 async def ask_external_link(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(LinkForm.waiting_link)
     if callback.message:
-        await callback.message.answer(
-            "Отправьте вашу ссылку для подписчиков.\nНапример: https://example.com",
-            reply_markup=single_back_to_cabinet_keyboard("Назад в Личный кабинет"),
+        await clear_state_message_id(
+            bot=callback.bot,
+            state=state,
+            chat_id=callback.message.chat.id,
+            key=CABINET_BANNER_MESSAGE_KEY,
         )
+    await state.set_state(LinkForm.waiting_link)
+    await edit_or_resend_callback_message(
+        callback,
+        "Отправьте вашу ссылку для подписчиков.\nНапример: https://example.com",
+        reply_markup=single_back_to_cabinet_keyboard("Назад в Личный кабинет"),
+    )
     await callback.answer()
 
 
@@ -53,12 +61,19 @@ async def save_external_link(message: Message, session: AsyncSession, state: FSM
 
 @router.callback_query(CabinetCallback.filter(F.action == "bio"))
 async def ask_bio(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(BioForm.waiting_bio)
     if callback.message:
-        await callback.message.answer(
-            "Расскажите о себе вашим подписчикам",
-            reply_markup=single_back_to_cabinet_keyboard("НАЗАД В ЛИЧНЫЙ КАБИНЕТ"),
+        await clear_state_message_id(
+            bot=callback.bot,
+            state=state,
+            chat_id=callback.message.chat.id,
+            key=CABINET_BANNER_MESSAGE_KEY,
         )
+    await state.set_state(BioForm.waiting_bio)
+    await edit_or_resend_callback_message(
+        callback,
+        "Расскажите о себе вашим подписчикам",
+        reply_markup=single_back_to_cabinet_keyboard("НАЗАД В ЛИЧНЫЙ КАБИНЕТ"),
+    )
     await callback.answer()
 
 

@@ -20,18 +20,26 @@ from app.keyboards.inline import (
 from app.services.broadcasts import BroadcastService
 from app.services.referrals import ReferralService
 from app.states.forms import BroadcastForm
+from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edit_or_resend_callback_message
 
 router = Router(name=__name__)
 
 
 @router.callback_query(CabinetCallback.filter(F.action == "broadcast"))
 async def broadcast_entry(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
     if callback.message:
-        await callback.message.answer(
-            "Вы хотите отправить сообщение своим подписчикам?",
-            reply_markup=broadcast_start_keyboard(),
+        await clear_state_message_id(
+            bot=callback.bot,
+            state=state,
+            chat_id=callback.message.chat.id,
+            key=CABINET_BANNER_MESSAGE_KEY,
         )
+    await state.clear()
+    await edit_or_resend_callback_message(
+        callback,
+        "Вы хотите отправить сообщение своим подписчикам?",
+        reply_markup=broadcast_start_keyboard(),
+    )
     await callback.answer()
 
 
@@ -39,19 +47,19 @@ async def broadcast_entry(callback: CallbackQuery, state: FSMContext) -> None:
 async def broadcast_start(callback: CallbackQuery, callback_data: BroadcastStartCallback, state: FSMContext) -> None:
     if callback_data.action == "no":
         await state.clear()
-        if callback.message:
-            await callback.message.answer(
-                "Рассылка отменена.",
-                reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
-            )
+        await edit_or_resend_callback_message(
+            callback,
+            "Рассылка отменена.",
+            reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
+        )
         await callback.answer()
         return
 
-    if callback.message:
-        await callback.message.answer(
-            "Выберите какой контент вы хотите отправить вашим подписчикам",
-            reply_markup=broadcast_type_keyboard(),
-        )
+    await edit_or_resend_callback_message(
+        callback,
+        "Выберите какой контент вы хотите отправить вашим подписчикам",
+        reply_markup=broadcast_type_keyboard(),
+    )
     await callback.answer()
 
 
@@ -60,8 +68,7 @@ async def choose_broadcast_type(callback: CallbackQuery, callback_data: Broadcas
     await state.clear()
     await state.update_data(content_type=callback_data.content_type)
     await state.set_state(BroadcastForm.waiting_text)
-    if callback.message:
-        await callback.message.answer("Отправьте текст сообщения для рассылки.")
+    await edit_or_resend_callback_message(callback, "Отправьте текст сообщения для рассылки.")
     await callback.answer()
 
 
@@ -155,18 +162,17 @@ async def broadcast_confirm(
 
     if action == "cancel":
         await state.clear()
-        if callback.message:
-            await callback.message.answer(
-                "Рассылка отменена.",
-                reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
-            )
+        await edit_or_resend_callback_message(
+            callback,
+            "Рассылка отменена.",
+            reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
+        )
         await callback.answer()
         return
 
     if action == "edit":
         await state.set_state(BroadcastForm.waiting_text)
-        if callback.message:
-            await callback.message.answer("Отправьте новый текст сообщения.")
+        await edit_or_resend_callback_message(callback, "Отправьте новый текст сообщения.")
         await callback.answer()
         return
 
@@ -182,8 +188,7 @@ async def broadcast_confirm(
 
     if not content_type_raw:
         await state.clear()
-        if callback.message:
-            await callback.message.answer("Не найден тип рассылки. Запустите сценарий заново.")
+        await edit_or_resend_callback_message(callback, "Не найден тип рассылки. Запустите сценарий заново.")
         await callback.answer()
         return
 
@@ -202,12 +207,12 @@ async def broadcast_confirm(
     )
 
     await state.clear()
-    if callback.message:
-        await callback.message.answer(
-            "Рассылка завершена.\n\n"
-            f"Всего получателей: {total}\n"
-            f"Успешно: {success}\n"
-            f"Ошибок: {fail}",
-            reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
-        )
+    await edit_or_resend_callback_message(
+        callback,
+        "Рассылка завершена.\n\n"
+        f"Всего получателей: {total}\n"
+        f"Успешно: {success}\n"
+        f"Ошибок: {fail}",
+        reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
+    )
     await callback.answer()

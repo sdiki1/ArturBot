@@ -76,7 +76,13 @@ class ReferralService:
             )
             mentor_username = inviter.username or self.settings.default_mentor_username
             return mentor_name, mentor_username
-        return self.settings.default_mentor_name, self.settings.default_mentor_username
+
+        # If user has no inviter, allow user to be their own personal mentor profile.
+        mentor_name = " ".join(part for part in [user.first_name, user.last_name] if part).strip() or (
+            user.username or self.settings.default_mentor_name
+        )
+        mentor_username = user.username or self.settings.default_mentor_username
+        return mentor_name, mentor_username
 
     def build_referral_link(self, referral_code: str) -> str:
         return f"https://t.me/{self.settings.bot_username}?start=link_{referral_code}"
