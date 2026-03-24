@@ -5,10 +5,6 @@ class PhotoForm(StatesGroup):
     waiting_photo = State()
 
 
-class LinkForm(StatesGroup):
-    waiting_link = State()
-
-
 class BioForm(StatesGroup):
     waiting_bio = State()
 

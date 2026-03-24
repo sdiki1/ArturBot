@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     default_mentor_name: str = Field(default="Евгений Rembo", alias="DEFAULT_MENTOR_NAME")
     default_mentor_username: str = Field(default="charkrembo", alias="DEFAULT_MENTOR_USERNAME")
     community_chat_url: str = Field(default="", alias="COMMUNITY_CHAT_URL")
+    admin_ids_raw: str = Field(default="", alias="ADMIN_IDS")
 
     postgres_db: str = Field(default="bot_db", alias="POSTGRES_DB")
     postgres_user: str = Field(default="bot_user", alias="POSTGRES_USER")
@@ -52,6 +53,19 @@ class Settings(BaseSettings):
     @property
     def redis_url(self) -> str:
         return f"redis://{self.redis_host}:{self.redis_port}/0"
+
+    @property
+    def admin_ids(self) -> set[int]:
+        ids: set[int] = set()
+        for raw in self.admin_ids_raw.split(","):
+            value = raw.strip()
+            if not value:
+                continue
+            try:
+                ids.add(int(value))
+            except ValueError:
+                continue
+        return ids
 
 
 @lru_cache(maxsize=1)

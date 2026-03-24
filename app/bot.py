@@ -8,7 +8,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import BotCommand
 
 from app.config import get_settings
-from app.handlers import broadcasts, cabinet, photos, profile, referral, start, subscribers, subscription
+from app.handlers import admin, broadcasts, cabinet, photos, profile, referral, start, subscribers, subscription
 from app.middlewares.db import DbSessionMiddleware
 
 
@@ -17,6 +17,7 @@ async def set_bot_commands(bot: Bot) -> None:
         BotCommand(command="start", description="Запуск"),
         BotCommand(command="cabinet", description="Личный кабинет"),
         BotCommand(command="priglasil", description="Кто меня пригласил"),
+        BotCommand(command="admin", description="Админ-панель"),
     ]
     await bot.set_my_commands(commands)
 
@@ -36,6 +37,7 @@ async def main() -> None:
     dp.update.middleware.register(DbSessionMiddleware())
 
     dp.include_router(start.router)
+    dp.include_router(admin.router)
     dp.include_router(cabinet.router)
     dp.include_router(subscription.router)
     dp.include_router(referral.router)

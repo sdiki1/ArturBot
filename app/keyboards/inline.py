@@ -25,6 +25,10 @@ class BroadcastConfirmCallback(CallbackData, prefix="brc"):
     action: str
 
 
+class AdminCallback(CallbackData, prefix="adm"):
+    action: str
+
+
 def go_to_menu_keyboard(chat_url: str | None = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if chat_url:
@@ -39,7 +43,6 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="📅 Моя подписка", callback_data=CabinetCallback(action="subscription"))
     builder.button(text="🔗 Моя реф.ссылка", callback_data=CabinetCallback(action="referral"))
     builder.button(text="📷 Изменить фото", callback_data=CabinetCallback(action="photos"))
-    builder.button(text="🔗 Добавьте свою ссылку", callback_data=CabinetCallback(action="link"))
     builder.button(text="ℹ️ Добавить информацию о себе", callback_data=CabinetCallback(action="bio"))
     builder.button(text="🙋‍♂️ Мои подписчики", callback_data=CabinetCallback(action="subscribers"))
     builder.button(text="💌 Рассылка подписчикам", callback_data=CabinetCallback(action="broadcast"))
@@ -98,4 +101,15 @@ def broadcast_confirm_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="✏️ Изменить", callback_data=BroadcastConfirmCallback(action="edit"))
     builder.button(text="❌ Отмена", callback_data=BroadcastConfirmCallback(action="cancel"))
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def admin_main_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📊 Статистика", callback_data=AdminCallback(action="stats"))
+    builder.button(text="👥 Пользователи", callback_data=AdminCallback(action="users"))
+    builder.button(text="💳 Платежи", callback_data=AdminCallback(action="payments"))
+    builder.button(text="🔄 Обновить", callback_data=AdminCallback(action="open"))
+    builder.button(text="⬅️ В Личный кабинет", callback_data=CabinetCallback(action="open"))
+    builder.adjust(2, 2, 1)
     return builder.as_markup()

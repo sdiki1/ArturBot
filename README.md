@@ -31,6 +31,7 @@ cp .env.example .env
 - `BOT_USERNAME`
 - `DEFAULT_MENTOR_NAME`, `DEFAULT_MENTOR_USERNAME`
 - `COMMUNITY_CHAT_URL` (ссылка на ваш чат, например `https://t.me/your_chat`)
+- `ADMIN_IDS` (список Telegram ID админов через запятую, например `12345,67890`)
 - параметры БД и Redis
 - `WEB_BASE_URL`
 - `YOOMONEY_RECEIVER`, `YOOMONEY_LABEL_SECRET`, `YOOMONEY_SUCCESS_URL`, `YOOMONEY_FAIL_URL`
@@ -67,19 +68,20 @@ docker compose run --rm bot alembic revision --autogenerate -m "message"
 - `/start` — запуск
 - `/cabinet` — личный кабинет
 - `/priglasil` — кто пригласил
+- `/admin` — админ-панель
 
 ## Что реализовано
 
 - `/start` + deep link `link_<referral_code>`
 - логика пригласившего наставника в приветствии
-- личный кабинет с 7 кнопками
+- личный кабинет с 6 кнопками (без раздела "Добавьте свою ссылку")
 - подписка: остаток дней, продление на `+30` дней, оплата `199 RUB`
 - промежуточная web-страница "Переход к оплате"
 - callback/return по оплате через web-сервис
 - реферальная ссылка формата `https://t.me/{BOT_USERNAME}?start=link_{referral_code}`
 - `/priglasil`
 - 4 слота фото профиля
-- сохранение ссылки и информации о себе
+- сохранение информации о себе
 - список подписчиков (c разбиением длинных сообщений)
 - FSM-воронка рассылки: `text`, `text+photo`, `text+video`
 - логирование рассылок в `broadcasts` и `broadcast_logs`
