@@ -16,8 +16,8 @@ def _asset_path(*candidates: str) -> Path:
 
 
 def cabinet_banner_path() -> Path:
-    return _asset_path("cabinet_banner.jpg", "cabinet_banner.png")
+    return _asset_path("cabinet_banner.png", "cabinet_banner.jpg")
 
 
 def photo_placeholder_path() -> Path:
-    return _asset_path("photo_placeholder.jpg", "photo_placeholder.png")
+    return _asset_path("photo_placeholder.png", "photo_placeholder.jpg")

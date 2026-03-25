@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,19 +49,33 @@ async def show_photos_screen(bot: Bot, chat_id: int, user_id: int, session: Asyn
     for slot in range(1, 5):
         file_id = photo_map.get(slot)
         caption = await text_service.render("photos.slot_caption", slot=slot)
+        markup = photo_slot_keyboard(slot, label_template=labels["kb.photo_change_template"])
         if file_id:
-            sent = await bot.send_photo(
-                chat_id=chat_id,
-                photo=file_id,
-                caption=caption,
-                reply_markup=photo_slot_keyboard(slot, label_template=labels["kb.photo_change_template"]),
-            )
+            try:
+                sent = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=file_id,
+                    caption=caption,
+                    reply_markup=markup,
+                )
+            except TelegramBadRequest:
+                logger.warning(
+                    "Failed to send saved photo for user_id=%s slot=%s, fallback to placeholder",
+                    user_id,
+                    slot,
+                )
+                sent = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=FSInputFile(path=placeholder_path),
+                    caption=caption,
+                    reply_markup=markup,
+                )
         else:
             sent = await bot.send_photo(
                 chat_id=chat_id,
                 photo=FSInputFile(path=placeholder_path),
                 caption=caption,
-                reply_markup=photo_slot_keyboard(slot, label_template=labels["kb.photo_change_template"]),
+                reply_markup=markup,
             )
         message_ids.append(sent.message_id)
 
