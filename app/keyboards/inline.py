@@ -76,7 +76,11 @@ def single_back_to_cabinet_keyboard(label: str = "Назад в Личный к�
 
 def photo_slot_keyboard(slot_number: int, label_template: str = "Изменить мое фото {slot}") -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text=label_template.format(slot=slot_number), callback_data=PhotoCallback(slot=slot_number))
+    try:
+        label = label_template.format(slot=slot_number)
+    except Exception:
+        label = f"Изменить мое фото {slot_number}"
+    builder.button(text=label, callback_data=PhotoCallback(slot=slot_number))
     return builder.as_markup()
 
 

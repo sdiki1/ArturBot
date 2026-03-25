@@ -47,7 +47,7 @@ async def show_photos_screen(bot: Bot, chat_id: int, user_id: int, session: Asyn
 
     for slot in range(1, 5):
         file_id = photo_map.get(slot)
-        caption = labels["photos.slot_caption"].format(slot=slot)
+        caption = await text_service.render("photos.slot_caption", slot=slot)
         if file_id:
             sent = await bot.send_photo(
                 chat_id=chat_id,
