@@ -86,6 +86,7 @@ DEFAULT_TEXTS: dict[str, str] = {
     "web.pay_page_title": "Переход к оплате",
     "web.pay_page_wait": "Через несколько секунд тут будет страница оплаты...",
     "web.pay_page_button": "Перейти",
+    "payment.yoomoney_targets": "Подписка PRO возможности",
     "kb.start_to_chat": "Перейти в чат",
     "kb.cabinet_subscription": "📅 Моя подписка",
     "kb.cabinet_referral": "🔗 Моя реф.ссылка",

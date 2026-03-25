@@ -14,6 +14,7 @@ from app.db.models import Payment, PaymentStatus
 from app.db.repo.payment_repo import PaymentRepo
 from app.db.repo.user_repo import UserRepo
 from app.services.subscriptions import SubscriptionService
+from app.services.texts import TextService
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,12 @@ class PaymentService:
         self.payment_repo = PaymentRepo(session)
         self.user_repo = UserRepo(session)
 
-    def _build_yoomoney_url(self, external_payment_id: str, amount: int) -> str:
+    async def _build_yoomoney_url(self, external_payment_id: str, amount: int) -> str:
+        text_service = TextService(self.session)
         params = {
             "receiver": self.settings.yoomoney_receiver,
             "quickpay-form": "shop",
-            "targets": "Подписка PRO возможности",
+            "targets": await text_service.resolve("payment.yoomoney_targets"),
             "sum": str(amount),
             "label": external_payment_id,
         }
@@ -41,7 +43,7 @@ class PaymentService:
 
     async def create_subscription_payment(self, user_id: int) -> tuple[Payment, str]:
         external_payment_id = str(uuid4())
-        payment_url = self._build_yoomoney_url(
+        payment_url = await self._build_yoomoney_url(
             external_payment_id=external_payment_id,
             amount=self.settings.subscription_price_rub,
         )
