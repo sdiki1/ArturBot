@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.keyboards.inline import CabinetCallback, go_to_menu_keyboard
 from app.services.referrals import ReferralService
+from app.services.texts import TextService
 
 router = Router(name=__name__)
 
@@ -19,19 +20,22 @@ async def start_handler(message: Message, command: CommandObject, session: Async
 
     settings = get_settings()
     referral_service = ReferralService(session, settings)
+    text_service = TextService(session)
     user, _ = await referral_service.ensure_user(message.from_user, command.args if command else None)
     mentor_name, mentor_username = await referral_service.get_mentor_identity(user)
 
-    first_name = user.first_name or "друг"
-    text = (
-        f"Добрый день, {first_name}!\n\n"
-        f"Меня зовут {mentor_name}\n"
-        f"@{mentor_username}, я твой наставник и проводник в мир цифровых решений и онлайн-образования.\n\n"
-        "С радостью помогу разобраться в системе, отвечу на любые вопросы и начнем двигаться к твоим результатам вместе!"
+    first_name = user.first_name or await text_service.resolve("start.first_name_fallback")
+    text = await text_service.render(
+        "start.welcome",
+        first_name=first_name,
+        mentor_name=mentor_name,
+        mentor_username=mentor_username,
     )
-    await message.answer(text, reply_markup=go_to_menu_keyboard(settings.community_chat_url or None))
+    button_label = await text_service.resolve("kb.start_to_chat")
+    await message.answer(text, reply_markup=go_to_menu_keyboard(settings.community_chat_url or None, label=button_label))
 
 
 @router.callback_query(CabinetCallback.filter(F.action == "chat_not_set"))
-async def chat_not_set_handler(callback: CallbackQuery) -> None:
-    await callback.answer("Чат пока не подключен.", show_alert=True)
+async def chat_not_set_handler(callback: CallbackQuery, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    await callback.answer(await text_service.resolve("start.chat_not_set_alert"), show_alert=True)
