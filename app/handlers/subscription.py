@@ -10,6 +10,7 @@ from app.keyboards.inline import CabinetCallback, subscription_keyboard
 from app.services.payments import PaymentService
 from app.services.referrals import ReferralService
 from app.services.subscriptions import SubscriptionService
+from app.services.texts import TextService
 from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edit_or_resend_callback_message
 
 router = Router(name=__name__)
@@ -23,16 +24,19 @@ async def _show_subscription_text(target: Message | CallbackQuery, session: Asyn
         return
 
     referral_service = ReferralService(session, settings)
+    text_service = TextService(session)
     user, _ = await referral_service.ensure_user(tg_user)
 
-    first_name = user.first_name or "Пользователь"
+    first_name = user.first_name or await text_service.resolve("subscription.first_name_fallback")
     days_left = SubscriptionService.get_days_left(user.subscription_expires_at)
-    text = f"{first_name}, у Вас осталось дней подписки: {days_left}"
+    text = await text_service.render("subscription.days_left", first_name=first_name, days_left=days_left)
+    labels = await text_service.resolve_many(["kb.subscription_renew", "kb.back_to_cabinet_arrow"])
+    markup = subscription_keyboard(renew_label=labels["kb.subscription_renew"], back_label=labels["kb.back_to_cabinet_arrow"])
 
     if isinstance(target, Message):
-        await target.answer(text, reply_markup=subscription_keyboard())
+        await target.answer(text, reply_markup=markup)
     else:
-        await edit_or_resend_callback_message(target, text, reply_markup=subscription_keyboard())
+        await edit_or_resend_callback_message(target, text, reply_markup=markup)
 
 
 @router.callback_query(CabinetCallback.filter(F.action == "subscription"))
@@ -67,13 +71,17 @@ async def renew_subscription(callback: CallbackQuery, session: AsyncSession, sta
     user, _ = await referral_service.ensure_user(callback.from_user)
 
     payment_service = PaymentService(session, settings)
+    text_service = TextService(session)
     _, intermediate_url = await payment_service.create_subscription_payment(user.id)
 
     await callback.answer(url=intermediate_url)
+    text = await text_service.render("subscription.payment_opened", intermediate_url=intermediate_url)
+    labels = await text_service.resolve_many(["kb.subscription_renew", "kb.back_to_cabinet_arrow"])
     await edit_or_resend_callback_message(
         callback,
-        "Переход к оплате открыт.\n\n"
-        "Если страница оплаты не открылась автоматически, перейдите по ссылке:\n"
-        f"{intermediate_url}",
-        reply_markup=subscription_keyboard(),
+        text,
+        reply_markup=subscription_keyboard(
+            renew_label=labels["kb.subscription_renew"],
+            back_label=labels["kb.back_to_cabinet_arrow"],
+        ),
     )
