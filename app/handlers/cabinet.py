@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.keyboards.inline import CabinetCallback, cabinet_keyboard
 from app.services.media import cabinet_banner_path
 from app.services.referrals import ReferralService
+from app.services.texts import TextService
 from app.utils.ui import (
     CABINET_BANNER_MESSAGE_KEY,
     clear_state_message_id,
@@ -25,7 +26,7 @@ router = Router(name=__name__)
 PHOTOS_SCREEN_MESSAGES_KEY = "photos_screen_message_ids"
 
 
-async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext) -> None:
+async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext, session: AsyncSession) -> None:
     await clear_state_message_id(bot=bot, state=state, chat_id=chat_id, key=CABINET_BANNER_MESSAGE_KEY)
     try:
         banner = FSInputFile(path=str(cabinet_banner_path()))
@@ -35,7 +36,30 @@ async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext) -> None
         logger.exception("Failed to send cabinet banner")
         await store_state_message_id(state, CABINET_BANNER_MESSAGE_KEY, None)
 
-    await bot.send_message(chat_id=chat_id, text="Личный кабинет", reply_markup=cabinet_keyboard())
+    text_service = TextService(session)
+    texts = await text_service.resolve_many(
+        [
+            "cabinet.title",
+            "kb.cabinet_subscription",
+            "kb.cabinet_referral",
+            "kb.cabinet_photos",
+            "kb.cabinet_bio",
+            "kb.cabinet_subscribers",
+            "kb.cabinet_broadcast",
+        ]
+    )
+    await bot.send_message(
+        chat_id=chat_id,
+        text=texts["cabinet.title"],
+        reply_markup=cabinet_keyboard(
+            subscription_label=texts["kb.cabinet_subscription"],
+            referral_label=texts["kb.cabinet_referral"],
+            photos_label=texts["kb.cabinet_photos"],
+            bio_label=texts["kb.cabinet_bio"],
+            subscribers_label=texts["kb.cabinet_subscribers"],
+            broadcast_label=texts["kb.cabinet_broadcast"],
+        ),
+    )
 
 
 @router.message(Command("cabinet"))
@@ -52,7 +76,7 @@ async def cabinet_command_handler(message: Message, session: AsyncSession, state
         chat_id=message.chat.id,
         key=PHOTOS_SCREEN_MESSAGES_KEY,
     )
-    await show_cabinet_screen(message.bot, message.chat.id, state)
+    await show_cabinet_screen(message.bot, message.chat.id, state, session)
 
 
 @router.callback_query(CabinetCallback.filter(F.action == "open"))
@@ -75,5 +99,5 @@ async def cabinet_router(callback: CallbackQuery, session: AsyncSession, state: 
     await state.clear()
 
     if callback.message:
-        await show_cabinet_screen(callback.bot, callback.message.chat.id, state)
+        await show_cabinet_screen(callback.bot, callback.message.chat.id, state, session)
     await callback.answer()
