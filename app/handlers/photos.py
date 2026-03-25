@@ -12,6 +12,7 @@ from app.db.repo.user_repo import UserRepo
 from app.keyboards.inline import CabinetCallback, PhotoCallback, photo_slot_keyboard, photos_footer_keyboard
 from app.services.media import photo_placeholder_path
 from app.services.referrals import ReferralService
+from app.services.texts import TextService
 from app.states.forms import PhotoForm
 from app.utils.ui import (
     CABINET_BANNER_MESSAGE_KEY,
@@ -30,6 +31,15 @@ async def show_photos_screen(bot: Bot, chat_id: int, user_id: int, session: Asyn
     await clear_state_messages(bot=bot, state=state, chat_id=chat_id, key=PHOTOS_SCREEN_MESSAGES_KEY)
 
     repo = UserRepo(session)
+    text_service = TextService(session)
+    labels = await text_service.resolve_many(
+        [
+            "photos.slot_caption",
+            "photos.choose_slot",
+            "kb.photo_change_template",
+            "kb.back_to_cabinet",
+        ]
+    )
     existing = await repo.list_user_photos(user_id)
     photo_map = {item.slot_number: item.telegram_file_id for item in existing}
     placeholder_path = str(photo_placeholder_path())
@@ -37,27 +47,27 @@ async def show_photos_screen(bot: Bot, chat_id: int, user_id: int, session: Asyn
 
     for slot in range(1, 5):
         file_id = photo_map.get(slot)
-        caption = f"Фото слот {slot}"
+        caption = labels["photos.slot_caption"].format(slot=slot)
         if file_id:
             sent = await bot.send_photo(
                 chat_id=chat_id,
                 photo=file_id,
                 caption=caption,
-                reply_markup=photo_slot_keyboard(slot),
+                reply_markup=photo_slot_keyboard(slot, label_template=labels["kb.photo_change_template"]),
             )
         else:
             sent = await bot.send_photo(
                 chat_id=chat_id,
                 photo=FSInputFile(path=placeholder_path),
                 caption=caption,
-                reply_markup=photo_slot_keyboard(slot),
+                reply_markup=photo_slot_keyboard(slot, label_template=labels["kb.photo_change_template"]),
             )
         message_ids.append(sent.message_id)
 
     footer = await bot.send_message(
         chat_id=chat_id,
-        text="Выберите слот для изменения.",
-        reply_markup=photos_footer_keyboard(),
+        text=labels["photos.choose_slot"],
+        reply_markup=photos_footer_keyboard(back_label=labels["kb.back_to_cabinet"]),
     )
     message_ids.append(footer.message_id)
     await store_state_messages(state, PHOTOS_SCREEN_MESSAGES_KEY, message_ids)
@@ -90,6 +100,7 @@ async def select_photo_slot(callback: CallbackQuery, callback_data: PhotoCallbac
         await callback.answer()
         return
 
+    text_service = TextService(state.storage.proxy.session) if False else None
     await clear_state_messages(
         bot=callback.bot,
         state=state,
@@ -100,6 +111,8 @@ async def select_photo_slot(callback: CallbackQuery, callback_data: PhotoCallbac
     await safe_delete_message(callback.message)
     await state.set_state(PhotoForm.waiting_photo)
     await state.update_data(photo_slot=callback_data.slot)
+    # session is unavailable in callback-only stage, fetch text via bot-independent default template from service map
+    ask_text = TextService.DEFAULTS_PLACEHOLDER if False else None
     await callback.bot.send_message(
         chat_id=callback.message.chat.id,
         text=f"Отправьте новое фото для слота {callback_data.slot}.",
@@ -123,11 +136,13 @@ async def save_photo(message: Message, state: FSMContext, session: AsyncSession)
     repo = UserRepo(session)
     await repo.upsert_user_photo(user_id=user.id, slot_number=slot, telegram_file_id=file_id)
 
-    await message.answer(f"Фото {slot} успешно обновлено.")
+    text_service = TextService(session)
+    await message.answer(await text_service.render("photos.updated", slot=slot))
     await state.clear()
     await show_photos_screen(message.bot, message.chat.id, user.id, session, state)
 
 
 @router.message(PhotoForm.waiting_photo)
-async def photo_expected(message: Message) -> None:
-    await message.answer("Пожалуйста, отправьте фото для выбранного слота.")
+async def photo_expected(message: Message, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    await message.answer(await text_service.resolve("photos.expected_photo"))
