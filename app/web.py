@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from html import escape
+from urllib.parse import quote
 
 import uvicorn
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -101,22 +102,23 @@ async def admin_panel(token: str | None = None, session: AsyncSession = Depends(
     text_forms_html = []
     for item in admin_items:
         value = item.override_value if item.override_value is not None else item.effective_value
+        safe_key = escape(item.key)
+        safe_default = escape(item.default_value) if item.default_value else "—"
+        safe_value = escape(value)
         text_forms_html.append(
-            (
-                '<div class="text-row" id="text-{key}">'
-                "<form method=\"post\" action=\"/admin/texts\">"
-                f"{token_input}"
-                f"<input type=\"hidden\" name=\"key\" value=\"{escape(item.key)}\" />"
-                f"<label><b>{escape(item.key)}</b></label>"
-                f"<div class=\"default\">По умолчанию: {escape(item.default_value) if item.default_value else '—'}</div>"
-                f"<textarea name=\"value\" rows=\"4\">{escape(value)}</textarea>"
-                "<div class=\"actions\">"
-                "<button type=\"submit\" name=\"action\" value=\"save\">Сохранить</button>"
-                "<button type=\"submit\" name=\"action\" value=\"reset\" class=\"secondary\">Сброс</button>"
-                "</div>"
-                "</form>"
-                "</div>"
-            ).format(key=escape(item.key))
+            f'<div class="text-row" id="text-{safe_key}">'
+            '<form method="post" action="/admin/texts">'
+            f"{token_input}"
+            f'<input type="hidden" name="key" value="{safe_key}" />'
+            f"<label><b>{safe_key}</b></label>"
+            f"<div class=\"default\">По умолчанию: {safe_default}</div>"
+            f'<textarea name="value" rows="4">{safe_value}</textarea>'
+            '<div class="actions">'
+            '<button type="submit" name="action" value="save">Сохранить</button>'
+            '<button type="submit" name="action" value="reset" class="secondary">Сброс</button>'
+            "</div>"
+            "</form>"
+            "</div>"
         )
     text_forms = "".join(text_forms_html)
 
@@ -194,7 +196,7 @@ async def admin_save_text(
         await text_service.set_text(key, value)
 
     suffix = f"?token={token}" if token else ""
-    return RedirectResponse(url=f"/admin{suffix}#text-{key}", status_code=303)
+    return RedirectResponse(url=f"/admin{suffix}#text-{quote(key)}", status_code=303)
 
 
 @app.get("/pay/{payment_uuid}", response_class=HTMLResponse)
