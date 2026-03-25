@@ -95,12 +95,16 @@ async def open_photos(callback: CallbackQuery, session: AsyncSession, state: FSM
 
 
 @router.callback_query(PhotoCallback.filter())
-async def select_photo_slot(callback: CallbackQuery, callback_data: PhotoCallback, state: FSMContext) -> None:
+async def select_photo_slot(
+    callback: CallbackQuery,
+    callback_data: PhotoCallback,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
     if callback.message is None:
         await callback.answer()
         return
 
-    text_service = TextService(state.storage.proxy.session) if False else None
     await clear_state_messages(
         bot=callback.bot,
         state=state,
@@ -111,11 +115,11 @@ async def select_photo_slot(callback: CallbackQuery, callback_data: PhotoCallbac
     await safe_delete_message(callback.message)
     await state.set_state(PhotoForm.waiting_photo)
     await state.update_data(photo_slot=callback_data.slot)
-    # session is unavailable in callback-only stage, fetch text via bot-independent default template from service map
-    ask_text = TextService.DEFAULTS_PLACEHOLDER if False else None
+    text_service = TextService(session)
+    ask_text = await text_service.render("photos.ask_new_slot", slot=callback_data.slot)
     await callback.bot.send_message(
         chat_id=callback.message.chat.id,
-        text=f"Отправьте новое фото для слота {callback_data.slot}.",
+        text=ask_text,
     )
     await callback.answer()
 
