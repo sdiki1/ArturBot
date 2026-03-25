@@ -19,14 +19,52 @@ from app.keyboards.inline import (
 )
 from app.services.broadcasts import BroadcastService
 from app.services.referrals import ReferralService
+from app.services.texts import TextService
 from app.states.forms import BroadcastForm
 from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edit_or_resend_callback_message
 
 router = Router(name=__name__)
 
 
+async def _broadcast_start_markup(text_service: TextService):
+    labels = await text_service.resolve_many(
+        ["kb.broadcast_yes", "kb.broadcast_no", "kb.back_to_cabinet_with_arrow_emoji_upper"]
+    )
+    return broadcast_start_keyboard(
+        yes_label=labels["kb.broadcast_yes"],
+        no_label=labels["kb.broadcast_no"],
+        back_label=labels["kb.back_to_cabinet_with_arrow_emoji_upper"],
+    )
+
+
+async def _broadcast_type_markup(text_service: TextService):
+    labels = await text_service.resolve_many(
+        [
+            "kb.broadcast_text",
+            "kb.broadcast_text_photo",
+            "kb.broadcast_text_video",
+            "kb.back_to_cabinet_with_arrow_emoji",
+        ]
+    )
+    return broadcast_type_keyboard(
+        text_label=labels["kb.broadcast_text"],
+        text_photo_label=labels["kb.broadcast_text_photo"],
+        text_video_label=labels["kb.broadcast_text_video"],
+        back_label=labels["kb.back_to_cabinet_with_arrow_emoji"],
+    )
+
+
+async def _broadcast_confirm_markup(text_service: TextService):
+    labels = await text_service.resolve_many(["kb.confirm_send", "kb.confirm_edit", "kb.confirm_cancel"])
+    return broadcast_confirm_keyboard(
+        send_label=labels["kb.confirm_send"],
+        edit_label=labels["kb.confirm_edit"],
+        cancel_label=labels["kb.confirm_cancel"],
+    )
+
+
 @router.callback_query(CabinetCallback.filter(F.action == "broadcast"))
-async def broadcast_entry(callback: CallbackQuery, state: FSMContext) -> None:
+async def broadcast_entry(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     if callback.message:
         await clear_state_message_id(
             bot=callback.bot,
@@ -35,82 +73,101 @@ async def broadcast_entry(callback: CallbackQuery, state: FSMContext) -> None:
             key=CABINET_BANNER_MESSAGE_KEY,
         )
     await state.clear()
+    text_service = TextService(session)
     await edit_or_resend_callback_message(
         callback,
-        "Вы хотите отправить сообщение своим подписчикам?",
-        reply_markup=broadcast_start_keyboard(),
+        await text_service.resolve("broadcast.entry_question"),
+        reply_markup=await _broadcast_start_markup(text_service),
     )
     await callback.answer()
 
 
 @router.callback_query(BroadcastStartCallback.filter())
-async def broadcast_start(callback: CallbackQuery, callback_data: BroadcastStartCallback, state: FSMContext) -> None:
+async def broadcast_start(
+    callback: CallbackQuery,
+    callback_data: BroadcastStartCallback,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    text_service = TextService(session)
     if callback_data.action == "no":
         await state.clear()
         await edit_or_resend_callback_message(
             callback,
-            "Рассылка отменена.",
-            reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
+            await text_service.resolve("broadcast.cancelled"),
+            reply_markup=single_back_to_cabinet_keyboard(await text_service.resolve("kb.back_to_cabinet_with_arrow_emoji")),
         )
         await callback.answer()
         return
 
     await edit_or_resend_callback_message(
         callback,
-        "Выберите какой контент вы хотите отправить вашим подписчикам",
-        reply_markup=broadcast_type_keyboard(),
+        await text_service.resolve("broadcast.choose_content"),
+        reply_markup=await _broadcast_type_markup(text_service),
     )
     await callback.answer()
 
 
 @router.callback_query(BroadcastTypeCallback.filter())
-async def choose_broadcast_type(callback: CallbackQuery, callback_data: BroadcastTypeCallback, state: FSMContext) -> None:
+async def choose_broadcast_type(
+    callback: CallbackQuery,
+    callback_data: BroadcastTypeCallback,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
     await state.clear()
     await state.update_data(content_type=callback_data.content_type)
     await state.set_state(BroadcastForm.waiting_text)
-    await edit_or_resend_callback_message(callback, "Отправьте текст сообщения для рассылки.")
+    text_service = TextService(session)
+    await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.ask_text"))
     await callback.answer()
 
 
 @router.message(BroadcastForm.waiting_text, F.text)
-async def receive_broadcast_text(message: Message, state: FSMContext) -> None:
+async def receive_broadcast_text(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    text_service = TextService(session)
     data = await state.get_data()
     content_type = data.get("content_type")
     text = (message.text or "").strip()
     if not text:
-        await message.answer("Текст не должен быть пустым. Отправьте текст сообщения.")
+        await message.answer(await text_service.resolve("broadcast.text_empty"))
         return
 
     await state.update_data(text=text)
 
     if content_type == BroadcastContentType.text.value:
         await state.set_state(BroadcastForm.waiting_confirm)
-        await message.answer(f"Предпросмотр:\n\n{text}", reply_markup=broadcast_confirm_keyboard())
+        await message.answer(
+            await text_service.render("broadcast.preview", text=text),
+            reply_markup=await _broadcast_confirm_markup(text_service),
+        )
         return
 
     if content_type == BroadcastContentType.text_photo.value:
         await state.set_state(BroadcastForm.waiting_photo)
-        await message.answer("Отправьте картинку для рассылки.")
+        await message.answer(await text_service.resolve("broadcast.ask_photo"))
         return
 
     if content_type == BroadcastContentType.text_video.value:
         await state.set_state(BroadcastForm.waiting_video)
-        await message.answer("Отправьте видео для рассылки.")
+        await message.answer(await text_service.resolve("broadcast.ask_video"))
         return
 
     await state.clear()
-    await message.answer("Не удалось определить тип рассылки. Начните заново.")
+    await message.answer(await text_service.resolve("broadcast.unknown_type"))
 
 
 @router.message(BroadcastForm.waiting_text)
-async def receive_broadcast_text_wrong_type(message: Message) -> None:
-    await message.answer("Пожалуйста, отправьте текст сообщения.")
+async def receive_broadcast_text_wrong_type(message: Message, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    await message.answer(await text_service.resolve("broadcast.expect_text"))
 
 
 @router.message(BroadcastForm.waiting_photo, F.photo)
-async def receive_broadcast_photo(message: Message, state: FSMContext) -> None:
+async def receive_broadcast_photo(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    text_service = TextService(session)
     if not message.photo:
-        await message.answer("Пожалуйста, отправьте картинку.")
+        await message.answer(await text_service.resolve("broadcast.expect_photo"))
         return
 
     file_id = message.photo[-1].file_id
@@ -121,18 +178,23 @@ async def receive_broadcast_photo(message: Message, state: FSMContext) -> None:
     await state.set_state(BroadcastForm.waiting_confirm)
 
     await message.answer_photo(photo=file_id, caption=str(text))
-    await message.answer("Подтвердите отправку:", reply_markup=broadcast_confirm_keyboard())
+    await message.answer(
+        await text_service.resolve("broadcast.confirm_send"),
+        reply_markup=await _broadcast_confirm_markup(text_service),
+    )
 
 
 @router.message(BroadcastForm.waiting_photo)
-async def receive_broadcast_photo_wrong_type(message: Message) -> None:
-    await message.answer("Пожалуйста, отправьте изображение.")
+async def receive_broadcast_photo_wrong_type(message: Message, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    await message.answer(await text_service.resolve("broadcast.expect_image"))
 
 
 @router.message(BroadcastForm.waiting_video, F.video)
-async def receive_broadcast_video(message: Message, state: FSMContext) -> None:
+async def receive_broadcast_video(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    text_service = TextService(session)
     if not message.video:
-        await message.answer("Пожалуйста, отправьте видео.")
+        await message.answer(await text_service.resolve("broadcast.expect_video"))
         return
 
     file_id = message.video.file_id
@@ -143,12 +205,16 @@ async def receive_broadcast_video(message: Message, state: FSMContext) -> None:
     await state.set_state(BroadcastForm.waiting_confirm)
 
     await message.answer_video(video=file_id, caption=str(text))
-    await message.answer("Подтвердите отправку:", reply_markup=broadcast_confirm_keyboard())
+    await message.answer(
+        await text_service.resolve("broadcast.confirm_send"),
+        reply_markup=await _broadcast_confirm_markup(text_service),
+    )
 
 
 @router.message(BroadcastForm.waiting_video)
-async def receive_broadcast_video_wrong_type(message: Message) -> None:
-    await message.answer("Пожалуйста, отправьте видеофайл.")
+async def receive_broadcast_video_wrong_type(message: Message, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    await message.answer(await text_service.resolve("broadcast.expect_video_file"))
 
 
 @router.callback_query(BroadcastConfirmCallback.filter(), BroadcastForm.waiting_confirm)
@@ -159,20 +225,21 @@ async def broadcast_confirm(
     session: AsyncSession,
 ) -> None:
     action = callback_data.action
+    text_service = TextService(session)
 
     if action == "cancel":
         await state.clear()
         await edit_or_resend_callback_message(
             callback,
-            "Рассылка отменена.",
-            reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
+            await text_service.resolve("broadcast.cancelled"),
+            reply_markup=single_back_to_cabinet_keyboard(await text_service.resolve("kb.back_to_cabinet_with_arrow_emoji")),
         )
         await callback.answer()
         return
 
     if action == "edit":
         await state.set_state(BroadcastForm.waiting_text)
-        await edit_or_resend_callback_message(callback, "Отправьте новый текст сообщения.")
+        await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.ask_new_text"))
         await callback.answer()
         return
 
@@ -188,7 +255,7 @@ async def broadcast_confirm(
 
     if not content_type_raw:
         await state.clear()
-        await edit_or_resend_callback_message(callback, "Не найден тип рассылки. Запустите сценарий заново.")
+        await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.type_not_found"))
         await callback.answer()
         return
 
@@ -209,10 +276,7 @@ async def broadcast_confirm(
     await state.clear()
     await edit_or_resend_callback_message(
         callback,
-        "Рассылка завершена.\n\n"
-        f"Всего получателей: {total}\n"
-        f"Успешно: {success}\n"
-        f"Ошибок: {fail}",
-        reply_markup=single_back_to_cabinet_keyboard("⬅️ Назад в Личный кабинет"),
+        await text_service.render("broadcast.done", total=total, success=success, fail=fail),
+        reply_markup=single_back_to_cabinet_keyboard(await text_service.resolve("kb.back_to_cabinet_with_arrow_emoji")),
     )
     await callback.answer()
