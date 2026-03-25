@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     default_mentor_username: str = Field(default="charkrembo", alias="DEFAULT_MENTOR_USERNAME")
     community_chat_url: str = Field(default="", alias="COMMUNITY_CHAT_URL")
     admin_ids_raw: str = Field(default="", alias="ADMIN_IDS")
+    admin_web_token: str = Field(default="", alias="ADMIN_WEB_TOKEN")
 
     postgres_db: str = Field(default="bot_db", alias="POSTGRES_DB")
     postgres_user: str = Field(default="bot_user", alias="POSTGRES_USER")

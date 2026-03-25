@@ -32,6 +32,7 @@ cp .env.example .env
 - `DEFAULT_MENTOR_NAME`, `DEFAULT_MENTOR_USERNAME`
 - `COMMUNITY_CHAT_URL` (ссылка на ваш чат, например `https://t.me/your_chat`)
 - `ADMIN_IDS` (список Telegram ID админов через запятую, например `12345,67890`)
+- `ADMIN_WEB_TOKEN` (токен для web-админки; если пустой, доступ к `/admin` открыт)
 - параметры БД и Redis
 - `WEB_BASE_URL`
 - `YOOMONEY_RECEIVER`, `YOOMONEY_LABEL_SECRET`, `YOOMONEY_SUCCESS_URL`, `YOOMONEY_FAIL_URL`
@@ -48,6 +49,7 @@ docker compose up --build
 
 - Web: `http://localhost:8000`
 - Health web: `http://localhost:8000/health`
+- Admin web: `http://localhost:8000/admin` (или `http://localhost:8000/admin?token=...`)
 
 ## Миграции
 
@@ -69,6 +71,8 @@ docker compose run --rm bot alembic revision --autogenerate -m "message"
 - `/cabinet` — личный кабинет
 - `/priglasil` — кто пригласил
 - `/admin` — админ-панель
+
+Команды `/start`, `/cabinet`, `/priglasil` автоматически публикуются в меню бота при старте.
 
 ## Что реализовано
 
