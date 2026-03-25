@@ -123,3 +123,11 @@ class BroadcastLog(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     broadcast: Mapped[Broadcast] = relationship("Broadcast", back_populates="logs")
+
+
+class AppText(Base, TimestampMixin):
+    __tablename__ = "app_texts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    value: Mapped[str] = mapped_column(Text)
