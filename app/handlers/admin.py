@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.models import Payment, PaymentStatus, User
 from app.keyboards.inline import AdminCallback, admin_main_keyboard
+from app.services.texts import TextService
 from app.utils.text import user_display_name
 from app.utils.ui import edit_or_resend_callback_message
 
@@ -22,7 +23,7 @@ def _is_admin(telegram_id: int) -> bool:
     return telegram_id in settings.admin_ids
 
 
-async def _build_stats_text(session: AsyncSession) -> str:
+async def _build_stats_text(session: AsyncSession, text_service: TextService) -> str:
     now = datetime.now(timezone.utc)
 
     total_users = int((await session.execute(select(func.count(User.id)))).scalar_one())
@@ -43,37 +44,37 @@ async def _build_stats_text(session: AsyncSession) -> str:
         ).scalar_one()
     )
 
-    return (
-        "Админ-панель\n\n"
-        f"Всего пользователей: {total_users}\n"
-        f"Активных подписок: {active_subscriptions}\n"
-        f"Всего платежей: {total_payments}\n"
-        f"Успешных платежей: {paid_payments}"
+    return await text_service.render(
+        "tg_admin.title_stats",
+        total_users=total_users,
+        active_subscriptions=active_subscriptions,
+        total_payments=total_payments,
+        paid_payments=paid_payments,
     )
 
 
-async def _build_users_text(session: AsyncSession, limit: int = 20) -> str:
+async def _build_users_text(session: AsyncSession, text_service: TextService, limit: int = 20) -> str:
     result = await session.execute(select(User).order_by(User.created_at.desc()).limit(limit))
     users = list(result.scalars().all())
 
     if not users:
-        return "Последние пользователи:\n\nПользователей пока нет."
+        return await text_service.resolve("tg_admin.recent_users_empty")
 
-    lines = ["Последние пользователи:"]
+    lines = [await text_service.resolve("tg_admin.recent_users_title")]
     for item in users:
         username = f" @{item.username}" if item.username else ""
         lines.append(f"- {user_display_name(item)}{username} (id: {item.telegram_id})")
     return "\n".join(lines)
 
 
-async def _build_payments_text(session: AsyncSession, limit: int = 20) -> str:
+async def _build_payments_text(session: AsyncSession, text_service: TextService, limit: int = 20) -> str:
     result = await session.execute(select(Payment).order_by(Payment.created_at.desc()).limit(limit))
     payments = list(result.scalars().all())
 
     if not payments:
-        return "Последние платежи:\n\nПлатежей пока нет."
+        return await text_service.resolve("tg_admin.recent_payments_empty")
 
-    lines = ["Последние платежи:"]
+    lines = [await text_service.resolve("tg_admin.recent_payments_title")]
     for item in payments:
         lines.append(
             f"- user_id={item.user_id} | {item.amount} {item.currency} | {item.status.value} | {item.external_payment_id}"
@@ -86,35 +87,62 @@ async def admin_command(message: Message, session: AsyncSession) -> None:
     if message.from_user is None:
         return
 
+    text_service = TextService(session)
     if not _is_admin(message.from_user.id):
-        await message.answer("Нет доступа к админ-панели.")
+        await message.answer(await text_service.resolve("tg_admin.no_access_message"))
         return
 
-    text = await _build_stats_text(session)
-    await message.answer(text, reply_markup=admin_main_keyboard())
+    text = await _build_stats_text(session, text_service)
+    labels = await text_service.resolve_many(
+        ["kb.admin_stats", "kb.admin_users", "kb.admin_payments", "kb.admin_refresh", "kb.admin_to_cabinet"]
+    )
+    await message.answer(
+        text,
+        reply_markup=admin_main_keyboard(
+            stats_label=labels["kb.admin_stats"],
+            users_label=labels["kb.admin_users"],
+            payments_label=labels["kb.admin_payments"],
+            refresh_label=labels["kb.admin_refresh"],
+            to_cabinet_label=labels["kb.admin_to_cabinet"],
+        ),
+    )
 
 
 @router.callback_query(AdminCallback.filter())
 async def admin_callbacks(callback: CallbackQuery, callback_data: AdminCallback, session: AsyncSession) -> None:
+    text_service = TextService(session)
     if callback.from_user is None:
         await callback.answer()
         return
 
     if not _is_admin(callback.from_user.id):
-        await callback.answer("Нет доступа.", show_alert=True)
+        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
         return
 
     if callback_data.action == "open":
-        text = await _build_stats_text(session)
+        text = await _build_stats_text(session, text_service)
     elif callback_data.action == "stats":
-        text = await _build_stats_text(session)
+        text = await _build_stats_text(session, text_service)
     elif callback_data.action == "users":
-        text = await _build_users_text(session)
+        text = await _build_users_text(session, text_service)
     elif callback_data.action == "payments":
-        text = await _build_payments_text(session)
+        text = await _build_payments_text(session, text_service)
     else:
         await callback.answer()
         return
 
-    await edit_or_resend_callback_message(callback, text, reply_markup=admin_main_keyboard())
+    labels = await text_service.resolve_many(
+        ["kb.admin_stats", "kb.admin_users", "kb.admin_payments", "kb.admin_refresh", "kb.admin_to_cabinet"]
+    )
+    await edit_or_resend_callback_message(
+        callback,
+        text,
+        reply_markup=admin_main_keyboard(
+            stats_label=labels["kb.admin_stats"],
+            users_label=labels["kb.admin_users"],
+            payments_label=labels["kb.admin_payments"],
+            refresh_label=labels["kb.admin_refresh"],
+            to_cabinet_label=labels["kb.admin_to_cabinet"],
+        ),
+    )
     await callback.answer()
