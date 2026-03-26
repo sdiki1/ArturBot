@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import func, select
@@ -94,7 +94,14 @@ async def admin_command(message: Message, session: AsyncSession) -> None:
 
     text = await _build_stats_text(session, text_service)
     labels = await text_service.resolve_many(
-        ["kb.admin_stats", "kb.admin_users", "kb.admin_payments", "kb.admin_refresh", "kb.admin_to_cabinet"]
+        [
+            "kb.admin_stats",
+            "kb.admin_users",
+            "kb.admin_payments",
+            "kb.admin_broadcast",
+            "kb.admin_refresh",
+            "kb.admin_to_cabinet",
+        ]
     )
     await message.answer(
         text,
@@ -102,13 +109,14 @@ async def admin_command(message: Message, session: AsyncSession) -> None:
             stats_label=labels["kb.admin_stats"],
             users_label=labels["kb.admin_users"],
             payments_label=labels["kb.admin_payments"],
+            broadcast_label=labels["kb.admin_broadcast"],
             refresh_label=labels["kb.admin_refresh"],
             to_cabinet_label=labels["kb.admin_to_cabinet"],
         ),
     )
 
 
-@router.callback_query(AdminCallback.filter())
+@router.callback_query(AdminCallback.filter(F.action.in_(("open", "stats", "users", "payments"))))
 async def admin_callbacks(callback: CallbackQuery, callback_data: AdminCallback, session: AsyncSession) -> None:
     text_service = TextService(session)
     if callback.from_user is None:
@@ -132,7 +140,14 @@ async def admin_callbacks(callback: CallbackQuery, callback_data: AdminCallback,
         return
 
     labels = await text_service.resolve_many(
-        ["kb.admin_stats", "kb.admin_users", "kb.admin_payments", "kb.admin_refresh", "kb.admin_to_cabinet"]
+        [
+            "kb.admin_stats",
+            "kb.admin_users",
+            "kb.admin_payments",
+            "kb.admin_broadcast",
+            "kb.admin_refresh",
+            "kb.admin_to_cabinet",
+        ]
     )
     await edit_or_resend_callback_message(
         callback,
@@ -141,6 +156,7 @@ async def admin_callbacks(callback: CallbackQuery, callback_data: AdminCallback,
             stats_label=labels["kb.admin_stats"],
             users_label=labels["kb.admin_users"],
             payments_label=labels["kb.admin_payments"],
+            broadcast_label=labels["kb.admin_broadcast"],
             refresh_label=labels["kb.admin_refresh"],
             to_cabinet_label=labels["kb.admin_to_cabinet"],
         ),

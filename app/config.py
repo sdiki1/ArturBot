@@ -14,9 +14,13 @@ class Settings(BaseSettings):
 
     default_mentor_name: str = Field(default="Евгений Rembo", alias="DEFAULT_MENTOR_NAME")
     default_mentor_username: str = Field(default="charkrembo", alias="DEFAULT_MENTOR_USERNAME")
+    start_page_photo_url: str = Field(default="", alias="START_PAGE_PHOTO_URL")
     community_chat_url: str = Field(default="", alias="COMMUNITY_CHAT_URL")
     admin_ids_raw: str = Field(default="", alias="ADMIN_IDS")
     admin_web_token: str = Field(default="", alias="ADMIN_WEB_TOKEN")
+    empire_chat_id_raw: str = Field(default="", alias="EMPIRE_CHAT_ID")
+    empire_hide_bot_username: str = Field(default="", alias="EMPIRE_HIDE_BOT_USERNAME")
+    empire_hide_bot_id_raw: str = Field(default="", alias="EMPIRE_HIDE_BOT_ID")
 
     postgres_db: str = Field(default="bot_db", alias="POSTGRES_DB")
     postgres_user: str = Field(default="bot_user", alias="POSTGRES_USER")
@@ -67,6 +71,26 @@ class Settings(BaseSettings):
             except ValueError:
                 continue
         return ids
+
+    @property
+    def empire_chat_id(self) -> int | None:
+        raw = self.empire_chat_id_raw.strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    @property
+    def empire_hide_bot_id(self) -> int | None:
+        raw = self.empire_hide_bot_id_raw.strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
 
 
 @lru_cache(maxsize=1)

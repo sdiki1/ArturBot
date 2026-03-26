@@ -37,9 +37,9 @@ DEFAULT_TEXTS: dict[str, str] = {
     "profile.bio_prompt": "Расскажите о себе вашим подписчикам",
     "profile.bio_expected_text": "Пожалуйста, отправьте текст.",
     "profile.bio_saved": "Информация о себе успешно сохранена.",
-    "broadcast.entry_question": "Вы хотите отправить сообщение своим подписчикам?",
+    "broadcast.entry_question": "Вы хотите отправить сообщение всем пользователям бота?",
     "broadcast.cancelled": "Рассылка отменена.",
-    "broadcast.choose_content": "Выберите какой контент вы хотите отправить вашим подписчикам",
+    "broadcast.choose_content": "Выберите, какой контент вы хотите отправить всем пользователям бота.",
     "broadcast.ask_text": "Отправьте текст сообщения для рассылки.",
     "broadcast.text_empty": "Текст не должен быть пустым. Отправьте текст сообщения.",
     "broadcast.preview": "Предпросмотр:\n\n{text}",
@@ -112,8 +112,10 @@ DEFAULT_TEXTS: dict[str, str] = {
     "kb.admin_stats": "📊 Статистика",
     "kb.admin_users": "👥 Пользователи",
     "kb.admin_payments": "💳 Платежи",
+    "kb.admin_broadcast": "📣 Рассылка всем",
     "kb.admin_refresh": "🔄 Обновить",
     "kb.admin_to_cabinet": "⬅️ В Личный кабинет",
+    "kb.back_to_admin": "⬅️ Назад в админ-панель",
 }
 
 

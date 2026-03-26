@@ -3,11 +3,13 @@ from __future__ import annotations
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.models import BroadcastContentType
 from app.keyboards.inline import (
+    AdminCallback,
     BroadcastConfirmCallback,
     BroadcastStartCallback,
     BroadcastTypeCallback,
@@ -15,7 +17,6 @@ from app.keyboards.inline import (
     broadcast_confirm_keyboard,
     broadcast_start_keyboard,
     broadcast_type_keyboard,
-    single_back_to_cabinet_keyboard,
 )
 from app.services.broadcasts import BroadcastService
 from app.services.referrals import ReferralService
@@ -26,31 +27,41 @@ from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edi
 router = Router(name=__name__)
 
 
-async def _broadcast_start_markup(text_service: TextService):
-    labels = await text_service.resolve_many(
-        ["kb.broadcast_yes", "kb.broadcast_no", "kb.back_to_cabinet_with_arrow_emoji_upper"]
+def _is_admin(telegram_id: int) -> bool:
+    return telegram_id in get_settings().admin_ids
+
+
+async def _single_back_markup(text_service: TextService, admin_mode: bool):
+    label_key = "kb.back_to_admin" if admin_mode else "kb.back_to_cabinet_with_arrow_emoji"
+    label = await text_service.resolve(label_key)
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=label,
+        callback_data=AdminCallback(action="open").pack() if admin_mode else CabinetCallback(action="open").pack(),
     )
+    return builder.as_markup()
+
+
+async def _broadcast_start_markup(text_service: TextService, admin_mode: bool):
+    labels = await text_service.resolve_many(["kb.broadcast_yes", "kb.broadcast_no"])
+    back_label = await text_service.resolve("kb.back_to_admin" if admin_mode else "kb.back_to_cabinet_with_arrow_emoji_upper")
     return broadcast_start_keyboard(
         yes_label=labels["kb.broadcast_yes"],
         no_label=labels["kb.broadcast_no"],
-        back_label=labels["kb.back_to_cabinet_with_arrow_emoji_upper"],
+        back_label=back_label,
+        back_callback_data=AdminCallback(action="open").pack() if admin_mode else CabinetCallback(action="open").pack(),
     )
 
 
-async def _broadcast_type_markup(text_service: TextService):
-    labels = await text_service.resolve_many(
-        [
-            "kb.broadcast_text",
-            "kb.broadcast_text_photo",
-            "kb.broadcast_text_video",
-            "kb.back_to_cabinet_with_arrow_emoji",
-        ]
-    )
+async def _broadcast_type_markup(text_service: TextService, admin_mode: bool):
+    labels = await text_service.resolve_many(["kb.broadcast_text", "kb.broadcast_text_photo", "kb.broadcast_text_video"])
+    back_label = await text_service.resolve("kb.back_to_admin" if admin_mode else "kb.back_to_cabinet_with_arrow_emoji")
     return broadcast_type_keyboard(
         text_label=labels["kb.broadcast_text"],
         text_photo_label=labels["kb.broadcast_text_photo"],
         text_video_label=labels["kb.broadcast_text_video"],
-        back_label=labels["kb.back_to_cabinet_with_arrow_emoji"],
+        back_label=back_label,
+        back_callback_data=AdminCallback(action="open").pack() if admin_mode else CabinetCallback(action="open").pack(),
     )
 
 
@@ -65,6 +76,11 @@ async def _broadcast_confirm_markup(text_service: TextService):
 
 @router.callback_query(CabinetCallback.filter(F.action == "broadcast"))
 async def broadcast_entry(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    if callback.from_user is None or not _is_admin(callback.from_user.id):
+        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
+        return
+
     if callback.message:
         await clear_state_message_id(
             bot=callback.bot,
@@ -73,11 +89,28 @@ async def broadcast_entry(callback: CallbackQuery, state: FSMContext, session: A
             key=CABINET_BANNER_MESSAGE_KEY,
         )
     await state.clear()
-    text_service = TextService(session)
+    await state.update_data(admin_broadcast=False)
     await edit_or_resend_callback_message(
         callback,
         await text_service.resolve("broadcast.entry_question"),
-        reply_markup=await _broadcast_start_markup(text_service),
+        reply_markup=await _broadcast_start_markup(text_service, admin_mode=False),
+    )
+    await callback.answer()
+
+
+@router.callback_query(AdminCallback.filter(F.action == "broadcast"))
+async def admin_broadcast_entry(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    text_service = TextService(session)
+    if callback.from_user is None or not _is_admin(callback.from_user.id):
+        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
+        return
+
+    await state.clear()
+    await state.update_data(admin_broadcast=True)
+    await edit_or_resend_callback_message(
+        callback,
+        await text_service.resolve("broadcast.entry_question"),
+        reply_markup=await _broadcast_start_markup(text_service, admin_mode=True),
     )
     await callback.answer()
 
@@ -90,12 +123,20 @@ async def broadcast_start(
     session: AsyncSession,
 ) -> None:
     text_service = TextService(session)
+    if callback.from_user is None or not _is_admin(callback.from_user.id):
+        await state.clear()
+        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
+        return
+
+    data = await state.get_data()
+    admin_mode = bool(data.get("admin_broadcast"))
+
     if callback_data.action == "no":
         await state.clear()
         await edit_or_resend_callback_message(
             callback,
             await text_service.resolve("broadcast.cancelled"),
-            reply_markup=single_back_to_cabinet_keyboard(await text_service.resolve("kb.back_to_cabinet_with_arrow_emoji")),
+            reply_markup=await _single_back_markup(text_service, admin_mode),
         )
         await callback.answer()
         return
@@ -103,7 +144,7 @@ async def broadcast_start(
     await edit_or_resend_callback_message(
         callback,
         await text_service.resolve("broadcast.choose_content"),
-        reply_markup=await _broadcast_type_markup(text_service),
+        reply_markup=await _broadcast_type_markup(text_service, admin_mode),
     )
     await callback.answer()
 
@@ -115,16 +156,27 @@ async def choose_broadcast_type(
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
-    await state.clear()
-    await state.update_data(content_type=callback_data.content_type)
-    await state.set_state(BroadcastForm.waiting_text)
     text_service = TextService(session)
+    if callback.from_user is None or not _is_admin(callback.from_user.id):
+        await state.clear()
+        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
+        return
+
+    data = await state.get_data()
+    admin_mode = bool(data.get("admin_broadcast"))
+    await state.clear()
+    await state.update_data(content_type=callback_data.content_type, admin_broadcast=admin_mode)
+    await state.set_state(BroadcastForm.waiting_text)
     await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.ask_text"))
     await callback.answer()
 
 
 @router.message(BroadcastForm.waiting_text, F.text)
 async def receive_broadcast_text(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None or not _is_admin(message.from_user.id):
+        await state.clear()
+        return
+
     text_service = TextService(session)
     data = await state.get_data()
     content_type = data.get("content_type")
@@ -158,13 +210,21 @@ async def receive_broadcast_text(message: Message, state: FSMContext, session: A
 
 
 @router.message(BroadcastForm.waiting_text)
-async def receive_broadcast_text_wrong_type(message: Message, session: AsyncSession) -> None:
+async def receive_broadcast_text_wrong_type(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None or not _is_admin(message.from_user.id):
+        await state.clear()
+        return
+
     text_service = TextService(session)
     await message.answer(await text_service.resolve("broadcast.expect_text"))
 
 
 @router.message(BroadcastForm.waiting_photo, F.photo)
 async def receive_broadcast_photo(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None or not _is_admin(message.from_user.id):
+        await state.clear()
+        return
+
     text_service = TextService(session)
     if not message.photo:
         await message.answer(await text_service.resolve("broadcast.expect_photo"))
@@ -185,13 +245,21 @@ async def receive_broadcast_photo(message: Message, state: FSMContext, session: 
 
 
 @router.message(BroadcastForm.waiting_photo)
-async def receive_broadcast_photo_wrong_type(message: Message, session: AsyncSession) -> None:
+async def receive_broadcast_photo_wrong_type(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None or not _is_admin(message.from_user.id):
+        await state.clear()
+        return
+
     text_service = TextService(session)
     await message.answer(await text_service.resolve("broadcast.expect_image"))
 
 
 @router.message(BroadcastForm.waiting_video, F.video)
 async def receive_broadcast_video(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None or not _is_admin(message.from_user.id):
+        await state.clear()
+        return
+
     text_service = TextService(session)
     if not message.video:
         await message.answer(await text_service.resolve("broadcast.expect_video"))
@@ -212,7 +280,11 @@ async def receive_broadcast_video(message: Message, state: FSMContext, session: 
 
 
 @router.message(BroadcastForm.waiting_video)
-async def receive_broadcast_video_wrong_type(message: Message, session: AsyncSession) -> None:
+async def receive_broadcast_video_wrong_type(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None or not _is_admin(message.from_user.id):
+        await state.clear()
+        return
+
     text_service = TextService(session)
     await message.answer(await text_service.resolve("broadcast.expect_video_file"))
 
@@ -226,13 +298,20 @@ async def broadcast_confirm(
 ) -> None:
     action = callback_data.action
     text_service = TextService(session)
+    if callback.from_user is None or not _is_admin(callback.from_user.id):
+        await state.clear()
+        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
+        return
+
+    data = await state.get_data()
+    admin_mode = bool(data.get("admin_broadcast"))
 
     if action == "cancel":
         await state.clear()
         await edit_or_resend_callback_message(
             callback,
             await text_service.resolve("broadcast.cancelled"),
-            reply_markup=single_back_to_cabinet_keyboard(await text_service.resolve("kb.back_to_cabinet_with_arrow_emoji")),
+            reply_markup=await _single_back_markup(text_service, admin_mode),
         )
         await callback.answer()
         return
@@ -243,11 +322,6 @@ async def broadcast_confirm(
         await callback.answer()
         return
 
-    if callback.from_user is None:
-        await callback.answer()
-        return
-
-    data = await state.get_data()
     content_type_raw = data.get("content_type")
     text = data.get("text")
     photo_file_id = data.get("photo_file_id")
@@ -277,6 +351,6 @@ async def broadcast_confirm(
     await edit_or_resend_callback_message(
         callback,
         await text_service.render("broadcast.done", total=total, success=success, fail=fail),
-        reply_markup=single_back_to_cabinet_keyboard(await text_service.resolve("kb.back_to_cabinet_with_arrow_emoji")),
+        reply_markup=await _single_back_markup(text_service, admin_mode),
     )
     await callback.answer()

@@ -45,7 +45,6 @@ async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext, session
             "kb.cabinet_photos",
             "kb.cabinet_bio",
             "kb.cabinet_subscribers",
-            "kb.cabinet_broadcast",
         ]
     )
     await bot.send_message(
@@ -57,7 +56,6 @@ async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext, session
             photos_label=texts["kb.cabinet_photos"],
             bio_label=texts["kb.cabinet_bio"],
             subscribers_label=texts["kb.cabinet_subscribers"],
-            broadcast_label=texts["kb.cabinet_broadcast"],
         ),
     )
 

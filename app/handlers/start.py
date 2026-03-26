@@ -61,6 +61,17 @@ async def start_handler(message: Message, command: CommandObject, session: Async
     button_label = await text_service.resolve("kb.start_to_chat")
     reply_markup = go_to_menu_keyboard(settings.community_chat_url or None, label=button_label)
 
+    if settings.start_page_photo_url:
+        try:
+            await message.answer_photo(
+                photo=settings.start_page_photo_url,
+                caption=text,
+                reply_markup=reply_markup,
+            )
+            return
+        except TelegramBadRequest:
+            logger.warning("Failed to send START_PAGE_PHOTO_URL for user_id=%s", user.id)
+
     if inviter:
         inviter_photo_file_id = await _resolve_inviter_photo_file_id(
             message=message,

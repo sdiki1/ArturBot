@@ -44,7 +44,6 @@ def cabinet_keyboard(
     photos_label: str = "📷 Изменить фото",
     bio_label: str = "ℹ️ Добавить информацию о себе",
     subscribers_label: str = "🙋‍♂️ Мои подписчики",
-    broadcast_label: str = "💌 Рассылка подписчикам",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=subscription_label, callback_data=CabinetCallback(action="subscription"))
@@ -52,7 +51,6 @@ def cabinet_keyboard(
     builder.button(text=photos_label, callback_data=CabinetCallback(action="photos"))
     builder.button(text=bio_label, callback_data=CabinetCallback(action="bio"))
     builder.button(text=subscribers_label, callback_data=CabinetCallback(action="subscribers"))
-    builder.button(text=broadcast_label, callback_data=CabinetCallback(action="broadcast"))
     builder.adjust(1)
     return builder.as_markup()
 
@@ -94,11 +92,12 @@ def broadcast_start_keyboard(
     yes_label: str = "✅ Да",
     no_label: str = "❌ Нет",
     back_label: str = "⬅️ Назад в Личный Кабинет",
+    back_callback_data: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=yes_label, callback_data=BroadcastStartCallback(action="yes"))
     builder.button(text=no_label, callback_data=BroadcastStartCallback(action="no"))
-    builder.button(text=back_label, callback_data=CabinetCallback(action="open"))
+    builder.button(text=back_label, callback_data=back_callback_data or CabinetCallback(action="open"))
     builder.adjust(2, 1)
     return builder.as_markup()
 
@@ -108,12 +107,13 @@ def broadcast_type_keyboard(
     text_photo_label: str = "Текст + картинка 📝🖼️",
     text_video_label: str = "Текст + Видео 📝🎥",
     back_label: str = "⬅️ Назад в Личный кабинет",
+    back_callback_data: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=text_label, callback_data=BroadcastTypeCallback(content_type="text"))
     builder.button(text=text_photo_label, callback_data=BroadcastTypeCallback(content_type="text_photo"))
     builder.button(text=text_video_label, callback_data=BroadcastTypeCallback(content_type="text_video"))
-    builder.button(text=back_label, callback_data=CabinetCallback(action="open"))
+    builder.button(text=back_label, callback_data=back_callback_data or CabinetCallback(action="open"))
     builder.adjust(1)
     return builder.as_markup()
 
@@ -135,6 +135,7 @@ def admin_main_keyboard(
     stats_label: str = "📊 Статистика",
     users_label: str = "👥 Пользователи",
     payments_label: str = "💳 Платежи",
+    broadcast_label: str = "📣 Рассылка всем",
     refresh_label: str = "🔄 Обновить",
     to_cabinet_label: str = "⬅️ В Личный кабинет",
 ) -> InlineKeyboardMarkup:
@@ -142,7 +143,8 @@ def admin_main_keyboard(
     builder.button(text=stats_label, callback_data=AdminCallback(action="stats"))
     builder.button(text=users_label, callback_data=AdminCallback(action="users"))
     builder.button(text=payments_label, callback_data=AdminCallback(action="payments"))
+    builder.button(text=broadcast_label, callback_data=AdminCallback(action="broadcast"))
     builder.button(text=refresh_label, callback_data=AdminCallback(action="open"))
     builder.button(text=to_cabinet_label, callback_data=CabinetCallback(action="open"))
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 2, 1, 1)
     return builder.as_markup()

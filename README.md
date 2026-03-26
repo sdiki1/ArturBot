@@ -30,9 +30,12 @@ cp .env.example .env
 - `BOT_TOKEN`
 - `BOT_USERNAME`
 - `DEFAULT_MENTOR_NAME`, `DEFAULT_MENTOR_USERNAME`
+- `START_PAGE_PHOTO_URL` (ссылка на фото для приветствия `/start`)
 - `COMMUNITY_CHAT_URL` (ссылка на ваш чат, например `https://t.me/your_chat`)
 - `ADMIN_IDS` (список Telegram ID админов через запятую, например `12345,67890`)
 - `ADMIN_WEB_TOKEN` (токен для web-админки; если пустой, доступ к `/admin` открыт)
+- `EMPIRE_CHAT_ID` (числовой ID чата, где нужна модерация)
+- `EMPIRE_HIDE_BOT_USERNAME` и/или `EMPIRE_HIDE_BOT_ID` (бот, чьи сообщения нужно скрывать в `EMPIRE_CHAT_ID`)
 - параметры БД и Redis
 - `WEB_BASE_URL`
 - `YOOMONEY_RECEIVER`, `YOOMONEY_LABEL_SECRET`, `YOOMONEY_SUCCESS_URL`, `YOOMONEY_FAIL_URL`
@@ -79,7 +82,7 @@ docker compose run --rm bot alembic revision --autogenerate -m "message"
 
 - `/start` + deep link `link_<referral_code>`
 - логика пригласившего наставника в приветствии
-- личный кабинет с 6 кнопками (без раздела "Добавьте свою ссылку")
+- личный кабинет с 5 кнопками (без раздела "Добавьте свою ссылку")
 - подписка: остаток дней, продление на `+30` дней, оплата `199 RUB`
 - промежуточная web-страница "Переход к оплате"
 - callback/return по оплате через web-сервис
@@ -88,8 +91,9 @@ docker compose run --rm bot alembic revision --autogenerate -m "message"
 - 1 слот фото профиля
 - сохранение информации о себе
 - список подписчиков (c разбиением длинных сообщений)
-- FSM-воронка рассылки: `text`, `text+photo`, `text+video`
+- FSM-воронка админ-рассылки по всем пользователям бота: `text`, `text+photo`, `text+video`
 - логирование рассылок в `broadcasts` и `broadcast_logs`
+- модерация чата `EMPIRE_CHAT_ID`: скрытие сообщений о входе новых участников и сообщений выбранного бота
 
 ## Структура
 

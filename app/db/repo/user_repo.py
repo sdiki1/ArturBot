@@ -64,6 +64,10 @@ class UserRepo:
         )
         return list(result.scalars().all())
 
+    async def list_all_users(self) -> list[User]:
+        result = await self.session.execute(select(User).order_by(User.created_at.asc()))
+        return list(result.scalars().all())
+
     async def count_subscribers(self, inviter_user_id: int) -> int:
         result = await self.session.execute(select(func.count(User.id)).where(User.inviter_user_id == inviter_user_id))
         return int(result.scalar_one())

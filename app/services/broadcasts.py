@@ -29,8 +29,8 @@ class BroadcastService:
         photo_file_id: str | None,
         video_file_id: str | None,
     ) -> tuple[int, int, int]:
-        subscribers = await self.user_repo.list_subscribers(sender_user.id)
-        total = len(subscribers)
+        recipients = await self.user_repo.list_all_users()
+        total = len(recipients)
 
         broadcast = await self.broadcast_repo.create(
             user_id=sender_user.id,
@@ -43,7 +43,7 @@ class BroadcastService:
 
         success_count = 0
         fail_count = 0
-        for recipient in subscribers:
+        for recipient in recipients:
             try:
                 if content_type == BroadcastContentType.text:
                     await bot.send_message(chat_id=recipient.telegram_id, text=text or "")

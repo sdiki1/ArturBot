@@ -8,7 +8,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefault
 
 from app.config import Settings, get_settings
-from app.handlers import admin, broadcasts, cabinet, photos, profile, referral, start, subscribers, subscription
+from app.handlers import admin, broadcasts, cabinet, community_moderation, photos, profile, referral, start, subscribers, subscription
 from app.middlewares.db import DbSessionMiddleware
 
 
@@ -51,6 +51,7 @@ async def main() -> None:
     dp.include_router(profile.router)
     dp.include_router(subscribers.router)
     dp.include_router(broadcasts.router)
+    dp.include_router(community_moderation.router)
 
     await set_bot_commands(bot, settings)
     await bot.delete_webhook(drop_pending_updates=True)
