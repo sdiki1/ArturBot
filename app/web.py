@@ -3,17 +3,20 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from html import escape
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import uvicorn
+from aiogram import Bot
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.models import Payment, PaymentStatus, User
+from app.db.models import BroadcastContentType, Payment, PaymentStatus, User
+from app.db.repo.user_repo import UserRepo
 from app.db.session import get_session
+from app.services.broadcasts import BroadcastService
 from app.services.payments import PaymentService
 from app.services.texts import TextService
 from app.utils.text import user_display_name
@@ -41,7 +44,15 @@ def _dt(value: datetime | None) -> str:
 
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_panel(token: str | None = None, session: AsyncSession = Depends(get_session)) -> HTMLResponse:
+async def admin_panel(
+    token: str | None = None,
+    br_status: str | None = None,
+    br_total: int | None = None,
+    br_success: int | None = None,
+    br_fail: int | None = None,
+    br_error: str | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
     if settings.admin_web_token and token != settings.admin_web_token:
         raise HTTPException(status_code=403, detail="forbidden")
 
@@ -121,6 +132,16 @@ async def admin_panel(token: str | None = None, session: AsyncSession = Depends(
             "</div>"
         )
     text_forms = "".join(text_forms_html)
+    broadcast_status_html = ""
+    if br_status == "ok":
+        broadcast_status_html = (
+            '<p class="ok">'
+            f"Готово: отправлено {br_success or 0} из {br_total or 0}, ошибок: {br_fail or 0}"
+            "</p>"
+        )
+    elif br_status == "error":
+        error_text = escape(br_error or "Ошибка отправки")
+        broadcast_status_html = f'<p class="err">{error_text}</p>'
 
     html = f"""
 <!doctype html>
@@ -140,6 +161,25 @@ async def admin_panel(token: str | None = None, session: AsyncSession = Depends(
     ul {{ margin: 0; padding-left: 18px; }}
     li {{ margin-bottom: 8px; word-break: break-word; }}
     .hint {{ color: #ffd27d; }}
+    .ok {{ color: #6ee7a9; font-weight: 600; }}
+    .err {{ color: #ff9c9c; font-weight: 600; }}
+    .broadcast-form textarea, .broadcast-form input {{
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #2d3442;
+      background: #0f131a;
+      color: #f4f5f7;
+      padding: 8px;
+      margin-bottom: 8px;
+    }}
+    .broadcast-form button {{
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }}
     .text-row {{ background: #171b23; border: 1px solid #2d3442; border-radius: 10px; padding: 12px; margin-bottom: 10px; }}
     .text-row label {{ display: block; margin-bottom: 6px; }}
     .text-row .default {{ color: #a8afbe; font-size: 12px; margin-bottom: 8px; white-space: pre-wrap; }}
@@ -167,6 +207,19 @@ async def admin_panel(token: str | None = None, session: AsyncSession = Depends(
       <h2>{escape(await text_service.resolve("web.admin_recent_payments_title"))}</h2>
       <ul>{payments_html}</ul>
     </div>
+    <div class="card" style="margin-top:12px;" id="admin-broadcast">
+      <h2>{escape(await text_service.resolve("web.admin_broadcast_title"))}</h2>
+      <p class="hint">{escape(await text_service.resolve("web.admin_broadcast_hint"))}</p>
+      {broadcast_status_html}
+      <form class="broadcast-form" method="post" action="/admin/broadcast">
+        {token_input}
+        <label>{escape(await text_service.resolve("web.admin_broadcast_text_label"))}</label>
+        <textarea name="text" rows="4" placeholder="Текст рассылки"></textarea>
+        <label>{escape(await text_service.resolve("web.admin_broadcast_photo_label"))}</label>
+        <input name="photo_url" type="text" placeholder="https://..." />
+        <button type="submit">{escape(await text_service.resolve("web.admin_broadcast_send_btn"))}</button>
+      </form>
+    </div>
     <div class="card" style="margin-top:12px;">
       <h2>{escape(await text_service.resolve("web.admin_texts_title"))}</h2>
       {text_forms}
@@ -176,6 +229,70 @@ async def admin_panel(token: str | None = None, session: AsyncSession = Depends(
 </html>
 """
     return HTMLResponse(content=html)
+
+
+@app.post("/admin/broadcast")
+async def admin_send_broadcast(
+    text: str = Form(default=""),
+    photo_url: str = Form(default=""),
+    token: str | None = Form(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    if settings.admin_web_token and token != settings.admin_web_token:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    text_clean = text.strip()
+    photo_url_clean = photo_url.strip()
+
+    if not text_clean and not photo_url_clean:
+        params = {"br_status": "error", "br_error": "Укажите текст или фото"}
+        if token:
+            params["token"] = token
+        return RedirectResponse(url=f"/admin?{urlencode(params)}#admin-broadcast", status_code=303)
+
+    user_repo = UserRepo(session)
+    sender_user = None
+    for admin_id in sorted(settings.admin_ids):
+        sender_user = await user_repo.get_by_telegram_id(admin_id)
+        if sender_user is not None:
+            break
+
+    if sender_user is None:
+        params = {"br_status": "error", "br_error": "Админ не найден в базе. Выполните /start админ-аккаунтом."}
+        if token:
+            params["token"] = token
+        return RedirectResponse(url=f"/admin?{urlencode(params)}#admin-broadcast", status_code=303)
+
+    content_type = BroadcastContentType.text_photo if photo_url_clean else BroadcastContentType.text
+
+    bot = Bot(token=settings.bot_token)
+    try:
+        broadcast_service = BroadcastService(session)
+        total, success, fail = await broadcast_service.send_broadcast(
+            bot=bot,
+            sender_user=sender_user,
+            content_type=content_type,
+            text=text_clean or None,
+            photo_file_id=photo_url_clean or None,
+            video_file_id=None,
+        )
+    except Exception as exc:
+        params = {"br_status": "error", "br_error": str(exc)[:300]}
+        if token:
+            params["token"] = token
+        return RedirectResponse(url=f"/admin?{urlencode(params)}#admin-broadcast", status_code=303)
+    finally:
+        await bot.session.close()
+
+    params = {
+        "br_status": "ok",
+        "br_total": str(total),
+        "br_success": str(success),
+        "br_fail": str(fail),
+    }
+    if token:
+        params["token"] = token
+    return RedirectResponse(url=f"/admin?{urlencode(params)}#admin-broadcast", status_code=303)
 
 
 @app.post("/admin/texts")

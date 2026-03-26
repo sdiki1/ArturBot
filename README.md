@@ -54,6 +54,7 @@ docker compose up --build
 - Health web: `http://localhost:8000/health`
 - Admin web: `http://localhost:8000/admin` (или `http://localhost:8000/admin?token=...`)
   - На странице `/admin` теперь есть блок `Редактирование текстов` — можно менять тексты бота и web-экранов без правки кода.
+  - На странице `/admin` есть блок рассылки всем пользователям бота (текст + опционально фото по URL/file_id).
 
 ## Миграции
 
