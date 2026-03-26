@@ -57,8 +57,8 @@ class User(Base, TimestampMixin):
 class UserPhoto(Base, TimestampMixin):
     __tablename__ = "user_photos"
     __table_args__ = (
-        UniqueConstraint("user_id", "slot_number", name="uq_user_photos_user_id_slot_number"),
-        CheckConstraint("slot_number >= 1 AND slot_number <= 4", name="slot_number_between_1_and_4"),
+        UniqueConstraint("user_id", name="uq_user_photos_user_id"),
+        CheckConstraint("slot_number = 1", name="slot_number_is_1"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

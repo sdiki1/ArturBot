@@ -41,43 +41,40 @@ async def show_photos_screen(bot: Bot, chat_id: int, user_id: int, session: Asyn
             "kb.back_to_cabinet",
         ]
     )
-    existing = await repo.list_user_photos(user_id)
-    photo_map = {item.slot_number: item.telegram_file_id for item in existing}
+    existing = await repo.get_user_photo(user_id=user_id, slot_number=1)
     placeholder_path = str(photo_placeholder_path())
     message_ids: list[int] = []
 
-    for slot in range(1, 5):
-        file_id = photo_map.get(slot)
-        caption = await text_service.render("photos.slot_caption", slot=slot)
-        markup = photo_slot_keyboard(slot, label_template=labels["kb.photo_change_template"])
-        if file_id:
-            try:
-                sent = await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=file_id,
-                    caption=caption,
-                    reply_markup=markup,
-                )
-            except TelegramBadRequest:
-                logger.warning(
-                    "Failed to send saved photo for user_id=%s slot=%s, fallback to placeholder",
-                    user_id,
-                    slot,
-                )
-                sent = await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=FSInputFile(path=placeholder_path),
-                    caption=caption,
-                    reply_markup=markup,
-                )
-        else:
+    file_id = existing.telegram_file_id if existing else None
+    caption = await text_service.render("photos.slot_caption", slot=1)
+    markup = photo_slot_keyboard(1, label_template=labels["kb.photo_change_template"])
+    if file_id:
+        try:
+            sent = await bot.send_photo(
+                chat_id=chat_id,
+                photo=file_id,
+                caption=caption,
+                reply_markup=markup,
+            )
+        except TelegramBadRequest:
+            logger.warning(
+                "Failed to send saved photo for user_id=%s, fallback to placeholder",
+                user_id,
+            )
             sent = await bot.send_photo(
                 chat_id=chat_id,
                 photo=FSInputFile(path=placeholder_path),
                 caption=caption,
                 reply_markup=markup,
             )
-        message_ids.append(sent.message_id)
+    else:
+        sent = await bot.send_photo(
+            chat_id=chat_id,
+            photo=FSInputFile(path=placeholder_path),
+            caption=caption,
+            reply_markup=markup,
+        )
+    message_ids.append(sent.message_id)
 
     footer = await bot.send_message(
         chat_id=chat_id,
@@ -112,7 +109,7 @@ async def open_photos(callback: CallbackQuery, session: AsyncSession, state: FSM
 @router.callback_query(PhotoCallback.filter())
 async def select_photo_slot(
     callback: CallbackQuery,
-    callback_data: PhotoCallback,
+    _callback_data: PhotoCallback,
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
@@ -129,9 +126,8 @@ async def select_photo_slot(
     )
     await safe_delete_message(callback.message)
     await state.set_state(PhotoForm.waiting_photo)
-    await state.update_data(photo_slot=callback_data.slot)
     text_service = TextService(session)
-    ask_text = await text_service.render("photos.ask_new_slot", slot=callback_data.slot)
+    ask_text = await text_service.render("photos.ask_new_slot", slot=1)
     await callback.bot.send_message(
         chat_id=callback.message.chat.id,
         text=ask_text,
@@ -144,19 +140,16 @@ async def save_photo(message: Message, state: FSMContext, session: AsyncSession)
     if message.from_user is None or not message.photo:
         return
 
-    data = await state.get_data()
-    slot = int(data.get("photo_slot", 1))
-
     settings = get_settings()
     referral_service = ReferralService(session, settings)
     user, _ = await referral_service.ensure_user(message.from_user)
 
     file_id = message.photo[-1].file_id
     repo = UserRepo(session)
-    await repo.upsert_user_photo(user_id=user.id, slot_number=slot, telegram_file_id=file_id)
+    await repo.upsert_user_photo(user_id=user.id, slot_number=1, telegram_file_id=file_id)
 
     text_service = TextService(session)
-    await message.answer(await text_service.render("photos.updated", slot=slot))
+    await message.answer(await text_service.render("photos.updated", slot=1))
     await state.clear()
     await show_photos_screen(message.bot, message.chat.id, user.id, session, state)
 

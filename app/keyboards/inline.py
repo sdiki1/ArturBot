@@ -74,7 +74,7 @@ def single_back_to_cabinet_keyboard(label: str = "Назад в Личный к�
     return builder.as_markup()
 
 
-def photo_slot_keyboard(slot_number: int, label_template: str = "Изменить мое фото {slot}") -> InlineKeyboardMarkup:
+def photo_slot_keyboard(slot_number: int, label_template: str = "Изменить мое фото") -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     try:
         label = label_template.format(slot=slot_number)

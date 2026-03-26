@@ -85,7 +85,7 @@ docker compose run --rm bot alembic revision --autogenerate -m "message"
 - callback/return по оплате через web-сервис
 - реферальная ссылка формата `https://t.me/{BOT_USERNAME}?start=link_{referral_code}`
 - `/priglasil`
-- 4 слота фото профиля
+- 1 слот фото профиля
 - сохранение информации о себе
 - список подписчиков (c разбиением длинных сообщений)
 - FSM-воронка рассылки: `text`, `text+photo`, `text+video`

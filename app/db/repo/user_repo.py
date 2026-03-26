@@ -79,6 +79,7 @@ class UserRepo:
         return list(result.scalars().all())
 
     async def upsert_user_photo(self, user_id: int, slot_number: int, telegram_file_id: str) -> UserPhoto:
+        slot_number = 1
         photo = await self.get_user_photo(user_id=user_id, slot_number=slot_number)
         if photo is None:
             photo = UserPhoto(user_id=user_id, slot_number=slot_number, telegram_file_id=telegram_file_id)
