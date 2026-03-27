@@ -24,18 +24,16 @@ from app.utils.ui import (
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 PHOTOS_SCREEN_MESSAGES_KEY = "photos_screen_message_ids"
+CABINET_BANNER_URL = (
+    "https://downloader.disk.yandex.ru/preview/888952cd0cf38ec90535bf6e62532eb17a58f1dc0f728bb111829f8d5beb0773/69c689f6/"
+    "YKJOxvankIQJxCxwOUAKTaGJPqz0FG2h2b1elkKULVXTB9QEQYeUNMQ2-c47MQOK7AZhi_2dFuARIB603mxoWg%3D%3D"
+    "?uid=0&filename=photo_2026-03-27%2003.11.46.jpeg&disposition=inline&hash=&limit=0&content_type=image%2Fjpeg"
+    "&owner_uid=0&tknv=v3&size=2048x2048"
+)
 
 
 async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext, session: AsyncSession) -> None:
     await clear_state_message_id(bot=bot, state=state, chat_id=chat_id, key=CABINET_BANNER_MESSAGE_KEY)
-    try:
-        banner = FSInputFile(path=str(cabinet_banner_path()))
-        banner_message = await bot.send_photo(chat_id=chat_id, photo=banner)
-        await store_state_message_id(state, CABINET_BANNER_MESSAGE_KEY, banner_message.message_id)
-    except Exception:
-        logger.exception("Failed to send cabinet banner")
-        await store_state_message_id(state, CABINET_BANNER_MESSAGE_KEY, None)
-
     text_service = TextService(session)
     texts = await text_service.resolve_many(
         [
@@ -47,17 +45,36 @@ async def show_cabinet_screen(bot: Bot, chat_id: int, state: FSMContext, session
             "kb.cabinet_subscribers",
         ]
     )
-    await bot.send_message(
-        chat_id=chat_id,
-        text=texts["cabinet.title"],
-        reply_markup=cabinet_keyboard(
-            subscription_label=texts["kb.cabinet_subscription"],
-            referral_label=texts["kb.cabinet_referral"],
-            photos_label=texts["kb.cabinet_photos"],
-            bio_label=texts["kb.cabinet_bio"],
-            subscribers_label=texts["kb.cabinet_subscribers"],
-        ),
+    keyboard = cabinet_keyboard(
+        subscription_label=texts["kb.cabinet_subscription"],
+        referral_label=texts["kb.cabinet_referral"],
+        photos_label=texts["kb.cabinet_photos"],
+        bio_label=texts["kb.cabinet_bio"],
+        subscribers_label=texts["kb.cabinet_subscribers"],
     )
+
+    try:
+        banner_message = await bot.send_photo(
+            chat_id=chat_id,
+            photo=CABINET_BANNER_URL,
+            caption=texts["cabinet.title"],
+            reply_markup=keyboard,
+        )
+        await store_state_message_id(state, CABINET_BANNER_MESSAGE_KEY, banner_message.message_id)
+    except Exception:
+        logger.exception("Failed to send cabinet banner from URL, fallback to local asset")
+        try:
+            banner = FSInputFile(path=str(cabinet_banner_path()))
+            banner_message = await bot.send_photo(
+                chat_id=chat_id,
+                photo=banner,
+                caption=texts["cabinet.title"],
+                reply_markup=keyboard,
+            )
+            await store_state_message_id(state, CABINET_BANNER_MESSAGE_KEY, banner_message.message_id)
+        except Exception:
+            logger.exception("Failed to send cabinet banner")
+            await store_state_message_id(state, CABINET_BANNER_MESSAGE_KEY, None)
 
 
 @router.message(Command("cabinet"))
