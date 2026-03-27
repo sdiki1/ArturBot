@@ -70,7 +70,7 @@ async def start_handler(message: Message, command: CommandObject, session: Async
             )
             return
         except TelegramBadRequest:
-            logger.warning("Failed to send START_PAGE_PHOTO_URL for user_id=%s", user.id)
+            logger.warning("Failed to send MAIN_PAGE_PHOTO_URL for user_id=%s", user.id)
 
     if inviter:
         inviter_photo_file_id = await _resolve_inviter_photo_file_id(

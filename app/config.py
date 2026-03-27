@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +14,10 @@ class Settings(BaseSettings):
 
     default_mentor_name: str = Field(default="Евгений Rembo", alias="DEFAULT_MENTOR_NAME")
     default_mentor_username: str = Field(default="charkrembo", alias="DEFAULT_MENTOR_USERNAME")
-    start_page_photo_url: str = Field(default="", alias="START_PAGE_PHOTO_URL")
+    start_page_photo_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("MAIN_PAGE_PHOTO_URL", "START_PAGE_PHOTO_URL"),
+    )
     community_chat_url: str = Field(default="", alias="COMMUNITY_CHAT_URL")
     admin_ids_raw: str = Field(default="", alias="ADMIN_IDS")
     admin_web_token: str = Field(default="", alias="ADMIN_WEB_TOKEN")

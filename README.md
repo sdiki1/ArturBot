@@ -30,7 +30,7 @@ cp .env.example .env
 - `BOT_TOKEN`
 - `BOT_USERNAME`
 - `DEFAULT_MENTOR_NAME`, `DEFAULT_MENTOR_USERNAME`
-- `START_PAGE_PHOTO_URL` (ссылка на фото для приветствия `/start`)
+- `MAIN_PAGE_PHOTO_URL` (ссылка на фото для приветствия `/start`)
 - `COMMUNITY_CHAT_URL` (ссылка на ваш чат, например `https://t.me/your_chat`)
 - `ADMIN_IDS` (список Telegram ID админов через запятую, например `12345,67890`)
 - `ADMIN_WEB_TOKEN` (токен для web-админки; если пустой, доступ к `/admin` открыт)
