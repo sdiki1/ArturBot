@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.models import BroadcastContentType
+from app.db.repo.user_repo import UserRepo
 from app.keyboards.inline import (
     AdminCallback,
     BroadcastConfirmCallback,
@@ -26,9 +27,52 @@ from app.utils.ui import CABINET_BANNER_MESSAGE_KEY, clear_state_message_id, edi
 
 router = Router(name=__name__)
 
+BROADCAST_TARGET_KEY = "broadcast_target"
+BROADCAST_TARGET_ALL = "all_users"
+BROADCAST_TARGET_INVITEES = "invitees"
+
 
 def _is_admin(telegram_id: int) -> bool:
     return telegram_id in get_settings().admin_ids
+
+
+def _normalize_broadcast_target(data: dict[str, object]) -> str | None:
+    target_raw = data.get(BROADCAST_TARGET_KEY)
+    if isinstance(target_raw, str) and target_raw in {BROADCAST_TARGET_ALL, BROADCAST_TARGET_INVITEES}:
+        return target_raw
+
+    legacy_admin_mode = data.get("admin_broadcast")
+    if isinstance(legacy_admin_mode, bool):
+        return BROADCAST_TARGET_ALL if legacy_admin_mode else BROADCAST_TARGET_INVITEES
+
+    return None
+
+
+def _is_allowed_sender(target: str, telegram_id: int) -> bool:
+    if target == BROADCAST_TARGET_ALL:
+        return _is_admin(telegram_id)
+    return target == BROADCAST_TARGET_INVITEES
+
+
+def _is_admin_mode(target: str) -> bool:
+    return target == BROADCAST_TARGET_ALL
+
+
+async def _resolve_message_context(
+    message: Message,
+    state: FSMContext,
+) -> tuple[str, dict[str, object]] | None:
+    if message.from_user is None:
+        await state.clear()
+        return None
+
+    data = await state.get_data()
+    target = _normalize_broadcast_target(data)
+    if target is None or not _is_allowed_sender(target, message.from_user.id):
+        await state.clear()
+        return None
+
+    return target, data
 
 
 async def _single_back_markup(text_service: TextService, admin_mode: bool):
@@ -77,8 +121,8 @@ async def _broadcast_confirm_markup(text_service: TextService):
 @router.callback_query(CabinetCallback.filter(F.action == "broadcast"))
 async def broadcast_entry(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     text_service = TextService(session)
-    if callback.from_user is None or not _is_admin(callback.from_user.id):
-        await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
+    if callback.from_user is None:
+        await callback.answer()
         return
 
     if callback.message:
@@ -89,10 +133,10 @@ async def broadcast_entry(callback: CallbackQuery, state: FSMContext, session: A
             key=CABINET_BANNER_MESSAGE_KEY,
         )
     await state.clear()
-    await state.update_data(admin_broadcast=False)
+    await state.update_data(**{BROADCAST_TARGET_KEY: BROADCAST_TARGET_INVITEES})
     await edit_or_resend_callback_message(
         callback,
-        await text_service.resolve("broadcast.entry_question"),
+        await text_service.resolve("broadcast.entry_question_partners"),
         reply_markup=await _broadcast_start_markup(text_service, admin_mode=False),
     )
     await callback.answer()
@@ -106,7 +150,7 @@ async def admin_broadcast_entry(callback: CallbackQuery, state: FSMContext, sess
         return
 
     await state.clear()
-    await state.update_data(admin_broadcast=True)
+    await state.update_data(**{BROADCAST_TARGET_KEY: BROADCAST_TARGET_ALL})
     await edit_or_resend_callback_message(
         callback,
         await text_service.resolve("broadcast.entry_question"),
@@ -123,13 +167,23 @@ async def broadcast_start(
     session: AsyncSession,
 ) -> None:
     text_service = TextService(session)
-    if callback.from_user is None or not _is_admin(callback.from_user.id):
+    if callback.from_user is None:
+        await state.clear()
+        await callback.answer()
+        return
+
+    data = await state.get_data()
+    target = _normalize_broadcast_target(data)
+    if target is None:
+        await state.clear()
+        await callback.answer(await text_service.resolve("broadcast.not_started"), show_alert=True)
+        return
+    if not _is_allowed_sender(target, callback.from_user.id):
         await state.clear()
         await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
         return
 
-    data = await state.get_data()
-    admin_mode = bool(data.get("admin_broadcast"))
+    admin_mode = _is_admin_mode(target)
 
     if callback_data.action == "no":
         await state.clear()
@@ -141,9 +195,10 @@ async def broadcast_start(
         await callback.answer()
         return
 
+    choose_content_key = "broadcast.choose_content" if admin_mode else "broadcast.choose_content_partners"
     await edit_or_resend_callback_message(
         callback,
-        await text_service.resolve("broadcast.choose_content"),
+        await text_service.resolve(choose_content_key),
         reply_markup=await _broadcast_type_markup(text_service, admin_mode),
     )
     await callback.answer()
@@ -157,15 +212,24 @@ async def choose_broadcast_type(
     session: AsyncSession,
 ) -> None:
     text_service = TextService(session)
-    if callback.from_user is None or not _is_admin(callback.from_user.id):
+    if callback.from_user is None:
+        await state.clear()
+        await callback.answer()
+        return
+
+    data = await state.get_data()
+    target = _normalize_broadcast_target(data)
+    if target is None:
+        await state.clear()
+        await callback.answer(await text_service.resolve("broadcast.not_started"), show_alert=True)
+        return
+    if not _is_allowed_sender(target, callback.from_user.id):
         await state.clear()
         await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
         return
 
-    data = await state.get_data()
-    admin_mode = bool(data.get("admin_broadcast"))
     await state.clear()
-    await state.update_data(content_type=callback_data.content_type, admin_broadcast=admin_mode)
+    await state.update_data(content_type=callback_data.content_type, **{BROADCAST_TARGET_KEY: target})
     await state.set_state(BroadcastForm.waiting_text)
     await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.ask_text"))
     await callback.answer()
@@ -173,12 +237,12 @@ async def choose_broadcast_type(
 
 @router.message(BroadcastForm.waiting_text, F.text)
 async def receive_broadcast_text(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if message.from_user is None or not _is_admin(message.from_user.id):
-        await state.clear()
+    context = await _resolve_message_context(message, state)
+    if context is None:
         return
 
+    _, data = context
     text_service = TextService(session)
-    data = await state.get_data()
     content_type = data.get("content_type")
     text = (message.text or "").strip()
     if not text:
@@ -211,8 +275,7 @@ async def receive_broadcast_text(message: Message, state: FSMContext, session: A
 
 @router.message(BroadcastForm.waiting_text)
 async def receive_broadcast_text_wrong_type(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if message.from_user is None or not _is_admin(message.from_user.id):
-        await state.clear()
+    if await _resolve_message_context(message, state) is None:
         return
 
     text_service = TextService(session)
@@ -221,17 +284,17 @@ async def receive_broadcast_text_wrong_type(message: Message, state: FSMContext,
 
 @router.message(BroadcastForm.waiting_photo, F.photo)
 async def receive_broadcast_photo(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if message.from_user is None or not _is_admin(message.from_user.id):
-        await state.clear()
+    context = await _resolve_message_context(message, state)
+    if context is None:
         return
 
+    _, data = context
     text_service = TextService(session)
     if not message.photo:
         await message.answer(await text_service.resolve("broadcast.expect_photo"))
         return
 
     file_id = message.photo[-1].file_id
-    data = await state.get_data()
     text = data.get("text", "")
 
     await state.update_data(photo_file_id=file_id)
@@ -246,8 +309,7 @@ async def receive_broadcast_photo(message: Message, state: FSMContext, session: 
 
 @router.message(BroadcastForm.waiting_photo)
 async def receive_broadcast_photo_wrong_type(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if message.from_user is None or not _is_admin(message.from_user.id):
-        await state.clear()
+    if await _resolve_message_context(message, state) is None:
         return
 
     text_service = TextService(session)
@@ -256,17 +318,17 @@ async def receive_broadcast_photo_wrong_type(message: Message, state: FSMContext
 
 @router.message(BroadcastForm.waiting_video, F.video)
 async def receive_broadcast_video(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if message.from_user is None or not _is_admin(message.from_user.id):
-        await state.clear()
+    context = await _resolve_message_context(message, state)
+    if context is None:
         return
 
+    _, data = context
     text_service = TextService(session)
     if not message.video:
         await message.answer(await text_service.resolve("broadcast.expect_video"))
         return
 
     file_id = message.video.file_id
-    data = await state.get_data()
     text = data.get("text", "")
 
     await state.update_data(video_file_id=file_id)
@@ -281,8 +343,7 @@ async def receive_broadcast_video(message: Message, state: FSMContext, session: 
 
 @router.message(BroadcastForm.waiting_video)
 async def receive_broadcast_video_wrong_type(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if message.from_user is None or not _is_admin(message.from_user.id):
-        await state.clear()
+    if await _resolve_message_context(message, state) is None:
         return
 
     text_service = TextService(session)
@@ -296,15 +357,25 @@ async def broadcast_confirm(
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
-    action = callback_data.action
     text_service = TextService(session)
-    if callback.from_user is None or not _is_admin(callback.from_user.id):
+    if callback.from_user is None:
+        await state.clear()
+        await callback.answer()
+        return
+
+    data = await state.get_data()
+    target = _normalize_broadcast_target(data)
+    if target is None:
+        await state.clear()
+        await callback.answer(await text_service.resolve("broadcast.not_started"), show_alert=True)
+        return
+    if not _is_allowed_sender(target, callback.from_user.id):
         await state.clear()
         await callback.answer(await text_service.resolve("tg_admin.no_access_alert"), show_alert=True)
         return
 
-    data = await state.get_data()
-    admin_mode = bool(data.get("admin_broadcast"))
+    admin_mode = _is_admin_mode(target)
+    action = callback_data.action
 
     if action == "cancel":
         await state.clear()
@@ -327,7 +398,15 @@ async def broadcast_confirm(
     photo_file_id = data.get("photo_file_id")
     video_file_id = data.get("video_file_id")
 
-    if not content_type_raw:
+    if not isinstance(content_type_raw, str):
+        await state.clear()
+        await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.type_not_found"))
+        await callback.answer()
+        return
+
+    try:
+        content_type = BroadcastContentType(content_type_raw)
+    except ValueError:
         await state.clear()
         await edit_or_resend_callback_message(callback, await text_service.resolve("broadcast.type_not_found"))
         await callback.answer()
@@ -337,20 +416,36 @@ async def broadcast_confirm(
     referral_service = ReferralService(session, settings)
     sender_user, _ = await referral_service.ensure_user(callback.from_user)
 
+    recipients = None
+    done_key = "broadcast.done"
+    if target == BROADCAST_TARGET_INVITEES:
+        recipients = await UserRepo(session).list_subscribers(sender_user.id)
+        if not recipients:
+            await state.clear()
+            await edit_or_resend_callback_message(
+                callback,
+                await text_service.resolve("broadcast.no_partners"),
+                reply_markup=await _single_back_markup(text_service, admin_mode=False),
+            )
+            await callback.answer()
+            return
+        done_key = "broadcast.done_partners"
+
     broadcast_service = BroadcastService(session)
     total, success, fail = await broadcast_service.send_broadcast(
         bot=callback.bot,
         sender_user=sender_user,
-        content_type=BroadcastContentType(content_type_raw),
-        text=text,
-        photo_file_id=photo_file_id,
-        video_file_id=video_file_id,
+        content_type=content_type,
+        text=text if isinstance(text, str) else None,
+        photo_file_id=photo_file_id if isinstance(photo_file_id, str) else None,
+        video_file_id=video_file_id if isinstance(video_file_id, str) else None,
+        recipients=recipients,
     )
 
     await state.clear()
     await edit_or_resend_callback_message(
         callback,
-        await text_service.render("broadcast.done", total=total, success=success, fail=fail),
+        await text_service.render(done_key, total=total, success=success, fail=fail),
         reply_markup=await _single_back_markup(text_service, admin_mode),
     )
     await callback.answer()

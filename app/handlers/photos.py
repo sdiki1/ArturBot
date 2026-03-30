@@ -91,6 +91,7 @@ async def open_photos(callback: CallbackQuery, session: AsyncSession, state: FSM
         await callback.answer()
         return
 
+    await callback.answer()
     settings = get_settings()
     referral_service = ReferralService(session, settings)
     user, _ = await referral_service.ensure_user(callback.from_user)
@@ -103,7 +104,6 @@ async def open_photos(callback: CallbackQuery, session: AsyncSession, state: FSM
 
     await safe_delete_message(callback.message)
     await show_photos_screen(callback.bot, callback.message.chat.id, user.id, session, state)
-    await callback.answer()
 
 
 @router.callback_query(PhotoCallback.filter())
@@ -117,22 +117,31 @@ async def select_photo_slot(
         await callback.answer()
         return
 
-    await clear_state_messages(
-        bot=callback.bot,
-        state=state,
-        chat_id=callback.message.chat.id,
-        key=PHOTOS_SCREEN_MESSAGES_KEY,
-        except_message_id=callback.message.message_id,
-    )
-    await safe_delete_message(callback.message)
-    await state.set_state(PhotoForm.waiting_photo)
-    text_service = TextService(session)
-    ask_text = await text_service.render("photos.ask_new_slot", slot=1)
-    await callback.bot.send_message(
-        chat_id=callback.message.chat.id,
-        text=ask_text,
-    )
     await callback.answer()
+    try:
+        await clear_state_messages(
+            bot=callback.bot,
+            state=state,
+            chat_id=callback.message.chat.id,
+            key=PHOTOS_SCREEN_MESSAGES_KEY,
+            except_message_id=callback.message.message_id,
+        )
+        await safe_delete_message(callback.message)
+        await state.set_state(PhotoForm.waiting_photo)
+        text_service = TextService(session)
+        ask_text = await text_service.render("photos.ask_new_slot", slot=1)
+        await callback.bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=ask_text,
+        )
+    except Exception:
+        logger.exception("Failed to open photo change flow")
+        await state.clear()
+        text_service = TextService(session)
+        await callback.bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=await text_service.resolve("photos.change_open_error"),
+        )
 
 
 @router.message(PhotoForm.waiting_photo, F.photo)

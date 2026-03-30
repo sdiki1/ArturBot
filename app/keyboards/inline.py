@@ -44,6 +44,7 @@ def cabinet_keyboard(
     photos_label: str = "📷 Изменить фото",
     bio_label: str = "ℹ️ Добавить информацию о себе",
     subscribers_label: str = "🙋‍♂️ Мои подписчики",
+    broadcast_label: str = "💌 Рассылка подписчикам",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=subscription_label, callback_data=CabinetCallback(action="subscription"))
@@ -51,6 +52,7 @@ def cabinet_keyboard(
     builder.button(text=photos_label, callback_data=CabinetCallback(action="photos"))
     builder.button(text=bio_label, callback_data=CabinetCallback(action="bio"))
     builder.button(text=subscribers_label, callback_data=CabinetCallback(action="subscribers"))
+    builder.button(text=broadcast_label, callback_data=CabinetCallback(action="broadcast"))
     builder.adjust(1)
     return builder.as_markup()
 

@@ -16,6 +16,14 @@ DEFAULT_TEXTS: dict[str, str] = {
         "С радостью помогу разобраться в системе, отвечу на любые вопросы и начнем двигаться к твоим результатам вместе!"
     ),
     "start.chat_not_set_alert": "Чат пока не подключен.",
+    "community.plus_welcome": (
+        "Привет {member_name}!\n"
+        "Я твой наставник {mentor_name}{mentor_username_line}.\n\n"
+        "{glad_word}, что ты {accepted_word}\n"
+        "решение стать частью «Империи Первых» — сильной команды, где растут, развиваются и реализуют свои цели.\n\n"
+        "Напиши мне в личные сообщения — вместе подберем стратегию, пройдем регистрацию и активацию, чтоб старт был лёгким и уверенным!\n"
+        "Жду тебя!"
+    ),
     "cabinet.title": "Личный кабинет",
     "referral.my_link": "Моя реф.ссылка:\n\n{link}",
     "referral.no_inviter_self": "У Вас нет пригласившего пользователя.\n\nВаш личный профиль:\n{self_name}{self_username_line}",
@@ -33,13 +41,16 @@ DEFAULT_TEXTS: dict[str, str] = {
     "photos.ask_new_slot": "Отправьте новое фото.",
     "photos.updated": "Фото успешно обновлено.",
     "photos.expected_photo": "Пожалуйста, отправьте фото.",
+    "photos.change_open_error": "Не удалось открыть режим смены фото. Попробуйте еще раз.",
     "profile.link_disabled": "Раздел «Добавьте свою ссылку» отключен.",
     "profile.bio_prompt": "Расскажите о себе вашим подписчикам",
     "profile.bio_expected_text": "Пожалуйста, отправьте текст.",
     "profile.bio_saved": "Информация о себе успешно сохранена.",
     "broadcast.entry_question": "Вы хотите отправить сообщение всем пользователям бота?",
+    "broadcast.entry_question_partners": "Вы хотите отправить сообщение вашим партнерам (приглашенным пользователям)?",
     "broadcast.cancelled": "Рассылка отменена.",
     "broadcast.choose_content": "Выберите, какой контент вы хотите отправить всем пользователям бота.",
+    "broadcast.choose_content_partners": "Выберите, какой контент вы хотите отправить вашим партнерам.",
     "broadcast.ask_text": "Отправьте текст сообщения для рассылки.",
     "broadcast.text_empty": "Текст не должен быть пустым. Отправьте текст сообщения.",
     "broadcast.preview": "Предпросмотр:\n\n{text}",
@@ -54,7 +65,10 @@ DEFAULT_TEXTS: dict[str, str] = {
     "broadcast.expect_video_file": "Пожалуйста, отправьте видеофайл.",
     "broadcast.ask_new_text": "Отправьте новый текст сообщения.",
     "broadcast.type_not_found": "Не найден тип рассылки. Запустите сценарий заново.",
+    "broadcast.not_started": "Сценарий рассылки не найден. Запустите его снова из кабинета.",
+    "broadcast.no_partners": "У вас пока нет приглашенных пользователей для рассылки.",
     "broadcast.done": "Рассылка завершена.\n\nВсего получателей: {total}\nУспешно: {success}\nОшибок: {fail}",
+    "broadcast.done_partners": "Рассылка партнерам завершена.\n\nВсего получателей: {total}\nУспешно: {success}\nОшибок: {fail}",
     "tg_admin.title_stats": (
         "Админ-панель\n\n"
         "Всего пользователей: {total_users}\n"
