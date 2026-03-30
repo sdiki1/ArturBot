@@ -166,6 +166,8 @@ async def moderate_empire_chat(message: Message, session: AsyncSession) -> None:
         glad_word=glad_word,
         accepted_word=accepted_word,
     )
+    entry_fee_text = await text_service.resolve("entry.fee")
+    text = f"{text}\n\n{entry_fee_text}"
 
     if inviter_photo_file_id:
         try:

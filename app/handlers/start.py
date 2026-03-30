@@ -58,6 +58,8 @@ async def start_handler(message: Message, command: CommandObject, session: Async
         mentor_name=mentor_name,
         mentor_username=mentor_username,
     )
+    entry_fee_text = await text_service.resolve("entry.fee")
+    text = f"{text}\n\n{entry_fee_text}"
     button_label = await text_service.resolve("kb.start_to_chat")
     reply_markup = go_to_menu_keyboard(settings.community_chat_url or None, label=button_label)
 
