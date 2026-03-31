@@ -109,11 +109,15 @@ async def open_photos(callback: CallbackQuery, session: AsyncSession, state: FSM
 @router.callback_query(PhotoCallback.filter())
 async def select_photo_slot(
     callback: CallbackQuery,
-    _callback_data: PhotoCallback,
+    callback_data: PhotoCallback,
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
     if callback.message is None:
+        await callback.answer()
+        return
+
+    if callback_data.slot != 1:
         await callback.answer()
         return
 
@@ -129,7 +133,7 @@ async def select_photo_slot(
         await safe_delete_message(callback.message)
         await state.set_state(PhotoForm.waiting_photo)
         text_service = TextService(session)
-        ask_text = await text_service.render("photos.ask_new_slot", slot=1)
+        ask_text = await text_service.render("photos.ask_new_slot", slot=callback_data.slot)
         await callback.bot.send_message(
             chat_id=callback.message.chat.id,
             text=ask_text,
