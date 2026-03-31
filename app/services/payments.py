@@ -57,7 +57,8 @@ class PaymentService:
             payment_url=payment_url,
         )
 
-        intermediate_url = f"{self.settings.web_base_url}/pay/{external_payment_id}"
+        base_url = self.settings.web_base_url.strip().rstrip("/")
+        intermediate_url = f"{base_url}/pay/{external_payment_id}" if base_url else payment_url
         return payment, intermediate_url
 
     async def get_payment(self, external_payment_id: str) -> Payment | None:
