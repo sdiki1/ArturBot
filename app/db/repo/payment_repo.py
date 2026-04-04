@@ -38,6 +38,17 @@ class PaymentRepo:
         result = await self.session.execute(select(Payment).where(Payment.external_payment_id == external_payment_id))
         return result.scalar_one_or_none()
 
+    async def list_unfinished_by_user(self, user_id: int) -> list[Payment]:
+        result = await self.session.execute(
+            select(Payment)
+            .where(
+                Payment.user_id == user_id,
+                Payment.status == PaymentStatus.pending,
+            )
+            .order_by(Payment.created_at.asc())
+        )
+        return list(result.scalars().all())
+
     async def mark_paid(self, payment: Payment) -> Payment:
         payment.status = PaymentStatus.paid
         payment.paid_at = datetime.now(timezone.utc)

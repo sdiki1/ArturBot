@@ -36,6 +36,10 @@ class Settings(BaseSettings):
 
     web_base_url: str = Field(default="http://localhost:8000", alias="WEB_BASE_URL")
 
+    yookassa_shop_id: str = Field(default="", alias="YOOKASSA_SHOP_ID")
+    yookassa_api_key: str = Field(default="", alias="YOOKASSA_API_KEY")
+    yookassa_return_url: str = Field(default="", alias="YOOKASSA_RETURN_URL")
+
     yoomoney_receiver: str = Field(default="", alias="YOOMONEY_RECEIVER")
     yoomoney_label_secret: str = Field(default="", alias="YOOMONEY_LABEL_SECRET")
     yoomoney_success_url: str = Field(default="", alias="YOOMONEY_SUCCESS_URL")

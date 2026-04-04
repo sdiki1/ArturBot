@@ -59,10 +59,12 @@ def cabinet_keyboard(
 
 def subscription_keyboard(
     renew_label: str = "♻️ Продлить подписку (+30 дней)",
+    check_payment_label: str = "🔍 Проверить оплату",
     back_label: str = "← Назад в Личный кабинет",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=renew_label, callback_data=CabinetCallback(action="renew_subscription"))
+    builder.button(text=check_payment_label, callback_data=CabinetCallback(action="check_payments"))
     builder.button(text=back_label, callback_data=CabinetCallback(action="open"))
     builder.adjust(1)
     return builder.as_markup()

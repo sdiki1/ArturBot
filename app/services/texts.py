@@ -37,6 +37,18 @@ DEFAULT_TEXTS: dict[str, str] = {
         "Переход к оплате открыт.\n\n"
         "Если страница оплаты не открылась автоматически, перейдите по ссылке:\n{intermediate_url}"
     ),
+    "subscription.payment_create_error": "Не удалось создать платеж. Попробуйте еще раз позже.",
+    "subscription.payment_check_none": "{first_name}, незавершенных оплат не найдено.\n\nДней подписки: {days_left}",
+    "subscription.payment_check_result": (
+        "{first_name}, проверка завершена.\n\n"
+        "Незавершенных оплат: {checked_count}\n"
+        "Подтверждено: {paid_count}\n"
+        "Ожидают оплаты: {pending_count}\n"
+        "Отменены: {failed_count}\n"
+        "Ошибок проверки: {error_count}\n\n"
+        "Дней подписки: {days_left}"
+    ),
+    "subscription.payment_check_error": "Не удалось проверить оплаты. Попробуйте еще раз через пару минут.",
     "photos.slot_caption": "Ваше фото",
     "photos.choose_slot": "Нажмите кнопку ниже, чтобы изменить фото.",
     "photos.ask_new_slot": "Отправьте новое фото.",
@@ -88,6 +100,7 @@ DEFAULT_TEXTS: dict[str, str] = {
     "web.payment_fail": "Оплата не завершена.",
     "web.payment_try_again": "Можно попробовать снова в боте.",
     "web.payment_back_to_tg": "Можно вернуться в Telegram.",
+    "web.payment_check_in_bot": "Вернитесь в Telegram и нажмите «Проверить оплату» в разделе подписки.",
     "web.admin_no_token_hint": "ADMIN_WEB_TOKEN не задан: доступ открыт без токена.",
     "web.admin_title": "Админ-панель",
     "web.admin_total_users_label": "Всего пользователей",
@@ -106,6 +119,7 @@ DEFAULT_TEXTS: dict[str, str] = {
     "web.pay_page_title": "Переход к оплате",
     "web.pay_page_wait": "Через несколько секунд тут будет страница оплаты...",
     "web.pay_page_button": "Перейти",
+    "payment.subscription_description": "Подписка PRO возможности",
     "payment.yoomoney_targets": "Подписка PRO возможности",
     "kb.start_to_chat": "Перейти в чат",
     "kb.cabinet_subscription": "📅 Моя подписка",
@@ -115,6 +129,7 @@ DEFAULT_TEXTS: dict[str, str] = {
     "kb.cabinet_subscribers": "🙋‍♂️ Мои подписчики",
     "kb.cabinet_broadcast": "💌 Рассылка подписчикам",
     "kb.subscription_renew": "♻️ Продлить подписку (+30 дней)",
+    "kb.subscription_check_payment": "🔍 Проверить оплату",
     "kb.back_to_cabinet": "Назад в Личный кабинет",
     "kb.back_to_cabinet_arrow": "← Назад в Личный кабинет",
     "kb.back_to_cabinet_upper": "НАЗАД В ЛИЧНЫЙ КАБИНЕТ",

@@ -397,6 +397,14 @@ async def yoomoney_success(label: str, session: AsyncSession = Depends(get_sessi
     )
 
 
+@app.get("/payments/yookassa/return", response_class=HTMLResponse)
+async def yookassa_return(session: AsyncSession = Depends(get_session)) -> HTMLResponse:
+    text_service = TextService(session)
+    back_text = await text_service.resolve("web.payment_back_to_tg")
+    check_text = await text_service.resolve("web.payment_check_in_bot")
+    return HTMLResponse(f"<h2>{escape(back_text)}</h2><p>{escape(check_text)}</p>")
+
+
 @app.get("/payments/yoomoney/fail", response_class=HTMLResponse)
 async def yoomoney_fail(label: str | None = None, session: AsyncSession = Depends(get_session)) -> HTMLResponse:
     if label:

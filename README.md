@@ -38,7 +38,9 @@ cp .env.example .env
 - `EMPIRE_HIDE_BOT_USERNAME` и/или `EMPIRE_HIDE_BOT_ID` (бот, чьи сообщения нужно скрывать в `EMPIRE_CHAT_ID`)
 - параметры БД и Redis
 - `WEB_BASE_URL`
-- `YOOMONEY_RECEIVER`, `YOOMONEY_LABEL_SECRET`, `YOOMONEY_SUCCESS_URL`, `YOOMONEY_FAIL_URL`
+- `YOOKASSA_SHOP_ID`, `YOOKASSA_API_KEY`
+- опционально: `YOOKASSA_RETURN_URL` (куда вернуть пользователя после оплаты; если пусто, используется `WEB_BASE_URL/payments/yookassa/return`)
+- legacy-настройки YooMoney (опционально): `YOOMONEY_RECEIVER`, `YOOMONEY_LABEL_SECRET`, `YOOMONEY_SUCCESS_URL`, `YOOMONEY_FAIL_URL`
 
 ## Запуск через Docker Compose
 
@@ -84,7 +86,8 @@ docker compose run --rm bot alembic revision --autogenerate -m "message"
 - `/start` + deep link `link_<referral_code>`
 - логика пригласившего наставника в приветствии
 - личный кабинет с 5 кнопками (без раздела "Добавьте свою ссылку")
-- подписка: остаток дней, продление на `+30` дней, оплата `199 RUB`
+- подписка: остаток дней, продление на `+30` дней, оплата `199 RUB` через YooKassa
+- кнопка `Проверить оплату` в подписке: проверяет все незавершенные платежи пользователя
 - промежуточная web-страница "Переход к оплате"
 - callback/return по оплате через web-сервис
 - реферальная ссылка формата `https://t.me/{BOT_USERNAME}?start=link_{referral_code}`
